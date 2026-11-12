@@ -160,7 +160,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 23</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 24</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -428,7 +428,19 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <div id="vopts" style="display:flex;flex-direction:column;gap:14px"></div>
         <div class="opt-group">
           <span class="label">תוספות (לא חובה)</span>
-          <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vTick" type="button" aria-pressed="false">באנר רץ למטה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
+          <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vTick2" type="button" aria-pressed="false">באנר רץ למעלה</button><button class="chip" id="vTick" type="button" aria-pressed="false">באנר רץ למטה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
+        </div>
+        <div class="itemPanel" id="vTick2Box" hidden>
+          <span class="label" style="margin:0">הבאנר הרץ למעלה</span>
+          <label class="note" for="vTick2Txt">מה יהיה כתוב (קוד קופון, מבצע, כל דבר)</label>
+          <textarea id="vTick2Txt" style="min-height:60px" placeholder="למשל: מבצע לחברי הקהילה! קוד קופון *NECHAMI10*"></textarea>
+          <p class="note">טקסט בין כוכביות, כמו *NECHAMI10*, יופיע מודגש כמו קוד קופון.</p>
+          <div class="row"><button class="btn btn-ghost btn-small" id="vT2Coupon" type="button">+ קוד קופון</button><button class="btn btn-ghost btn-small" id="vT2G" type="button">+ לב ירוק</button><button class="btn btn-ghost btn-small" id="vT2R" type="button">+ לב אדום</button></div>
+          <div class="chips"><button class="chip" id="vT2Logo" type="button" aria-pressed="true">הלוגו של הקהילה בבאנר</button></div>
+          <div class="audio-row"><img id="vT2Pic" alt="" hidden style="height:40px;border-radius:6px"><span class="hint" id="vT2PicTxt">לוגו או תמונה נוספים (לא חובה)</span>
+            <label class="btn btn-ghost btn-small" for="vT2File">בחירת תמונה</label><button class="btn btn-ghost btn-small" id="vT2Rm" type="button" hidden>הסרה</button>
+            <input class="hidden-input" type="file" id="vT2File" accept="image/*"></div>
+          <div class="opt-group"><span class="note">מהירות</span><div class="chips" id="vTick2Sp"></div></div>
         </div>
         <div class="itemPanel" id="vTickBox" hidden>
           <span class="label" style="margin:0">הבאנר הרץ</span>
@@ -1041,7 +1053,7 @@ const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classic
 const VCOLORS={white:"#ffffff",yellow:"#ffe14d",gold:"#f3cf6b",red:"#ff3838",black:"#111111",purple:"#5a1f8f"};
 const VSIZES={s:40,m:54,l:70,xl:92};
 const V={style:"morning", imgs:[], title:"", cap:"", track:0, showName:false,
-  deco:false, outro:false, cornerLogo:true, link:false, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
+  deco:false, outro:false, cornerLogo:true, link:false, tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
   musicKind:"quiet", ownMusic:null, musicName:"", vol:.6, ownMusicBlob:null, ownMusicBid:null, takes:[], voiceIdx:-1, voiceAt:.3, sounds:[], texts:[], rsel:null};
 let actx=null;
 function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
@@ -1159,9 +1171,9 @@ function vPrep(){
   vOverC=document.createElement("canvas"); vOverC.width=VW; vOverC.height=VH; c=vOverC.getContext("2d");
   c.drawImage(vFrameC,0,0); c.direction="rtl"; c.textBaseline="middle";
   const lh=140, lw=lh*logo.width/logo.height, lx=VW-26-lw;
-  if (V.cornerLogo){ c.save(); c.shadowColor="rgba(0,0,0,.55)"; c.shadowBlur=16; c.shadowOffsetY=6; c.drawImage(logo,lx,24,lw,lh); c.restore(); }
+  if (V.cornerLogo){ c.save(); c.shadowColor="rgba(0,0,0,.55)"; c.shadowBlur=16; c.shadowOffsetY=6; c.drawImage(logo,lx,V.tick2?24+TH+8:24,lw,lh); c.restore(); }
   if (!V.showName) return;
-  const rx0=34, rx1=lx-14, ry=58, rh=74;
+  const rx0=34, rx1=lx-14, ry=58+(V.tick2?TH+8:0), rh=74;
   c.save(); c.shadowColor="rgba(0,0,0,.5)"; c.shadowBlur=14; c.shadowOffsetY=6; c.fillStyle=goldGrad(c,rx0,ry,rx1,ry+rh); rr(c,rx0,ry,rx1-rx0,rh,rh/2); c.fill(); c.restore();
   const mx=rx1-rh/2, my=ry+rh/2, mr=rh/2+6;
   c.fillStyle=goldGrad(c,mx-mr,my-mr,mx+mr,my+mr); c.beginPath(); c.arc(mx,my,mr,0,Math.PI*2); c.fill();
@@ -1294,7 +1306,7 @@ function vCaps(ctx,tm,chunks){
   const lh=sz*1.25, maxLines=Math.floor((V.pos==="middle"?820:520)/lh);
   if (lines.length>maxLines){ lines=lines.slice(0,maxLines); lines[maxLines-1]+="…"; }
   const bh=lines.length*lh, rise=(1-a)*18;
-  const cy=V.pos==="top"?250+bh/2:V.pos==="middle"?VH/2:VH-170-bh/2;
+  const cy=V.pos==="top"?250+(V.tick2?TH+8:0)+bh/2:V.pos==="middle"?VH/2:VH-170-bh/2;
   const y0=cy-bh/2+lh/2+rise;
   if (V.box==="dark"||V.box==="light"){
     const bw=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60);
@@ -1313,7 +1325,7 @@ function drawOverlayText(ctx,text,o,a){
   ctx.save(); ctx.globalAlpha=a; ctx.direction="rtl"; ctx.textAlign="center"; ctx.textBaseline="middle";
   ctx.font=`${f[0]} ${Math.round(sz*f[2])}px "${f[1]}", Assistant, Arial, sans-serif`;
   let lines=wrapLines(ctx,text,VW-130); const lh=sz*1.25, maxL=Math.max(1,Math.floor(560/lh)); if (lines.length>maxL) lines=lines.slice(0,maxL);
-  const bh=lines.length*lh, cy=o.pos==="top"?(V.cornerLogo?250:140)+bh/2:o.pos==="middle"?VH/2:VH-170-bh/2, y0=cy-bh/2+lh/2;
+  const bh=lines.length*lh, cy=o.pos==="top"?(V.cornerLogo?250:140)+(V.tick2?TH+8:0)+bh/2:o.pos==="middle"?VH/2:VH-170-bh/2, y0=cy-bh/2+lh/2;
   if (o.box==="dark"||o.box==="light"){ const bw=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60);
     ctx.fillStyle=o.box==="dark"?"rgba(10,4,18,.66)":"rgba(255,255,255,.88)"; rr(ctx,VW/2-bw/2,cy-bh/2-18,bw,bh+36,22); ctx.fill();
     ctx.strokeStyle="rgba(233,196,106,.7)"; ctx.lineWidth=2; rr(ctx,VW/2-bw/2,cy-bh/2-18,bw,bh+36,22); ctx.stroke(); }
@@ -1340,29 +1352,45 @@ function vTitle(ctx,tm){
 
 /* ----- closing ----- */
 /* ----- running banner (ticker) ----- */
-const TICK={key:"",c:null}, TH=62, TY=VH-30-TH;
+const TICK={}, TH=62, TY=VH-30-TH, TY2=24;
 function heartShape(ctx,x,y,s,fill){ ctx.save(); ctx.beginPath(); ctx.moveTo(x,y+s*.95); ctx.bezierCurveTo(x-s*1.6,y,x-s*1.05,y-s*1.25,x,y-s*.45); ctx.bezierCurveTo(x+s*1.05,y-s*1.25,x+s*1.6,y,x,y+s*.95); ctx.closePath();
   ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=s*.22; ctx.strokeStyle="rgba(255,255,255,.95)"; ctx.stroke();
   ctx.beginPath(); ctx.ellipse(x-s*.42,y-s*.42,s*.22,s*.14,-.6,0,Math.PI*2); ctx.fillStyle="rgba(255,255,255,.55)"; ctx.fill(); ctx.restore(); }
-function tickStrip(){
-  const txt=(V.tickTxt||"").trim(); if (TICK.key===txt && TICK.c) return TICK.c;
-  const fs=34, hs=15, gap=16, parts=txt.split(/(💚|❤️|❤|♥️|♥)/).filter(x=>x&&x.trim()!==""||/(💚|❤)/.test(x));
+function buildStrip(txt,style,imgs){
+  const key=style+"|"+txt+"|"+imgs.map(i=>i.id).join(","); if (TICK[style]&&TICK[style].key===key) return TICK[style].c;
+  const top=style==="top", fs=34, hsz=15, gap=18;
   const m=document.createElement("canvas").getContext("2d"); m.font=`800 ${fs}px Assistant, Arial, sans-serif`;
-  const items=parts.map(x=>/💚/.test(x)?{h:"#21c45d"}:/(❤|♥)/.test(x)?{h:"#e8322f"}:{t:x.trim(),w:m.measureText(x.trim()).width});
-  let W=60; items.forEach(it=>{ W+=(it.h?hs*2.4:it.w)+gap; }); W=Math.max(W,VW+40);
+  const items=[]; imgs.forEach(im=>items.push({img:im.c}));
+  (txt||"").split(/(💚|❤️|❤|♥️|♥|\*[^*]+\*)/).forEach(x=>{ if (!x||!x.trim()) return;
+    if (/💚/.test(x)) items.push({h:"#21c45d"}); else if (/^(❤️|❤|♥️|♥)$/.test(x)) items.push({h:"#e8322f"});
+    else if (/^\*[^*]+\*$/.test(x)){ const t=x.slice(1,-1).trim(); items.push({pill:t,w:m.measureText(t).width+36}); }
+    else { const t=x.trim(); items.push({t,w:m.measureText(t).width}); } });
+  items.forEach(it=>{ if (it.img){ const h=TH-14; it.w=h*it.img.width/it.img.height; it.ih=h; } });
+  let W=70; items.forEach(it=>{ W+=(it.h?hsz*2.4:it.w)+gap; }); W=Math.max(W,VW+40);
   const c=document.createElement("canvas"); c.width=Math.ceil(W); c.height=TH; const x=c.getContext("2d");
-  x.direction="rtl"; x.textAlign="right"; x.textBaseline="middle"; x.font=m.font; let cur=W-30;
-  items.forEach(it=>{ if (it.h){ heartShape(x,cur-hs*1.2,TH/2+1,hs,it.h); cur-=hs*2.4+gap; } else { x.fillStyle="#fbf3dc"; x.fillText(it.t,cur,TH/2+2); cur-=it.w+gap; } });
-  TICK.key=txt; TICK.c=c; return c;
+  x.direction="rtl"; x.textAlign="right"; x.textBaseline="middle"; x.font=m.font; let cur=W-35;
+  items.forEach(it=>{
+    if (it.img){ x.drawImage(it.img,cur-it.w,(TH-it.ih)/2,it.w,it.ih); cur-=it.w+gap; }
+    else if (it.h){ heartShape(x,cur-hsz*1.2,TH/2+1,hsz,it.h); cur-=hsz*2.4+gap; }
+    else if (it.pill){ const ph=TH-18; x.fillStyle=top?"#2a0a45":goldGrad(x,cur-it.w,0,cur,0); rr(x,cur-it.w,(TH-ph)/2,it.w,ph,ph/2); x.fill();
+      x.setLineDash([6,5]); x.strokeStyle=top?"#f3cf6b":"#2a0a45"; x.lineWidth=2; rr(x,cur-it.w+4,(TH-ph)/2+4,it.w-8,ph-8,ph/2-4); x.stroke(); x.setLineDash([]);
+      x.fillStyle=top?"#ffe9a8":"#2a0a45"; x.fillText(it.pill,cur-18,TH/2+2); cur-=it.w+gap; }
+    else { x.fillStyle=top?"#2a0a45":"#fbf3dc"; x.fillText(it.t,cur,TH/2+2); cur-=it.w+gap; } });
+  TICK[style]={key,c}; return c;
 }
-function drawTicker(ctx,t){
-  if (!(V.tickTxt||"").trim()) return; const c=tickStrip(), W=c.width;
-  ctx.save(); const g=ctx.createLinearGradient(0,TY,0,TY+TH); g.addColorStop(0,"rgba(45,14,74,.94)"); g.addColorStop(1,"rgba(20,5,31,.94)");
-  ctx.fillStyle=g; ctx.fillRect(14,TY,VW-28,TH); ctx.fillStyle=goldGrad(ctx,0,0,VW,0); ctx.fillRect(14,TY,VW-28,3); ctx.fillRect(14,TY+TH-3,VW-28,3);
-  ctx.beginPath(); ctx.rect(14,TY,VW-28,TH); ctx.clip();
-  const off=((t*90*(V.tickSpeed||1))%W+W)%W;
-  ctx.drawImage(c,off-W,TY); ctx.drawImage(c,off,TY); if (off-2*W>-W) ctx.drawImage(c,off-2*W,TY);
+function drawBar(ctx,t,y,style,strip,speed){
+  const W=strip.width; ctx.save();
+  if (style==="top"){ ctx.fillStyle=goldGrad(ctx,0,y,VW,y+TH); ctx.fillRect(14,y,VW-28,TH); ctx.fillStyle="rgba(42,10,69,.55)"; ctx.fillRect(14,y,VW-28,2); ctx.fillRect(14,y+TH-2,VW-28,2); }
+  else { const g=ctx.createLinearGradient(0,y,0,y+TH); g.addColorStop(0,"rgba(45,14,74,.94)"); g.addColorStop(1,"rgba(20,5,31,.94)"); ctx.fillStyle=g; ctx.fillRect(14,y,VW-28,TH);
+    ctx.fillStyle=goldGrad(ctx,0,0,VW,0); ctx.fillRect(14,y,VW-28,3); ctx.fillRect(14,y+TH-3,VW-28,3); }
+  ctx.beginPath(); ctx.rect(14,y,VW-28,TH); ctx.clip();
+  const off=((t*90*(speed||1))%W+W)%W; ctx.drawImage(strip,off-W,y); ctx.drawImage(strip,off,y);
   ctx.restore();
+}
+function drawTicker(ctx,t){ if (!(V.tickTxt||"").trim()) return; drawBar(ctx,t,TY,"bottom",buildStrip(V.tickTxt,"bottom",[]),V.tickSpeed); }
+function drawTicker2(ctx,t){
+  const imgs=[]; if (V.tick2Logo) imgs.push({id:"logo",c:logo}); if (V.tick2Img) imgs.push({id:"img"+(V.tick2Bid||"x"),c:V.tick2Img});
+  if (!(V.tick2Txt||"").trim() && !imgs.length) return; drawBar(ctx,t,TY2,"top",buildStrip(V.tick2Txt,"top",imgs),V.tick2Speed);
 }
 function vLinkPage(ctx,p,t){
   const a=ease(p*2.5), cy=VH/2-60;
@@ -1396,8 +1424,8 @@ function vFrame(ctx,t,chunks){
   const S=VSTYLES[V.style], T=vTotal(), main=T-OUTRO;
   ctx.drawImage(vBgC,0,0);
   if (t>=main){ vOutro(ctx,(t-main)/OUTRO,t); vFx(ctx,t,S); ctx.drawImage(vFrameC,0,0); }
-  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
-      ctx.save(); ctx.globalAlpha=Math.max(0,a); drawLinkBadge(ctx,VW/2,V.linkPos==="top"?(V.cornerLogo?230:120):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74),40,t); ctx.restore(); } if (V.spk) drawSpeaker(ctx,74,V.tick?TY-48:VH-78,40,t); }
+  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.tick2) drawTicker2(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
+      ctx.save(); ctx.globalAlpha=Math.max(0,a); drawLinkBadge(ctx,VW/2,V.linkPos==="top"?(V.cornerLogo?230:120)+(V.tick2?TH+8:0):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74),40,t); ctx.restore(); } if (V.spk) drawSpeaker(ctx,74,V.tick?TY-48:VH-78,40,t); }
   let dip=0;
   if (OUTRO>0){ const d=Math.abs(t-main); if (d<.25) dip=1-d/.25; if (t>T-.4) dip=Math.max(dip,(t-(T-.4))/.4); }
   if (dip>0){ ctx.fillStyle=`rgba(8,2,14,${dip*.85})`; ctx.fillRect(0,0,VW,VH); }
@@ -1407,7 +1435,7 @@ function vPreviewAt(k){ const tl=vTimeline(); vpAt=tl[k]?tl[k].start+Math.min(1.
 let vpTimer=null;
 /* ----- undo / redo (up to 10 steps back) ----- */
 const HIST={list:[], idx:-1, lock:false, timer:null, reg:new Map(), seq:0};
-const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","tick","tickTxt","tickSpeed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
+const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
@@ -1736,6 +1764,16 @@ $("vCorner").onclick=()=>{ V.cornerLogo=!V.cornerLogo; vPrep(); vBuild(); vPrevi
 function setOutro(){ OUTRO=(V.outro||V.linkEnd)?3:0; }
 $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
 const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
+$("vTick2").onclick=()=>{ V.tick2=!V.tick2; vPrep(); vBuild(); vPreviewAt2(1); };
+$("vTick2Txt").addEventListener("input",e=>{ V.tick2Txt=e.target.value; vPreviewAt2(1); });
+const t2Ins=h=>{ const ta=$("vTick2Txt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+h+ta.value.slice(ta.selectionEnd||a); V.tick2Txt=ta.value; vBuild(); vPreviewAt2(1); ta.focus(); };
+$("vT2Coupon").onclick=()=>t2Ins(" קוד קופון: *הקוד כאן* "); $("vT2G").onclick=()=>t2Ins(" 💚 "); $("vT2R").onclick=()=>t2Ins(" ❤️ ");
+$("vT2Logo").onclick=()=>{ V.tick2Logo=!V.tick2Logo; vBuild(); vPreviewAt2(1); };
+async function setT2Img(b,bid){ const url=URL.createObjectURL(b); const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+  const sc=Math.min(1,160/im.height), c=document.createElement("canvas"); c.width=Math.max(1,Math.round(im.width*sc)); c.height=Math.max(1,Math.round(im.height*sc)); c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  V.tick2Img=c; V.tick2Blob=b; V.tick2Bid=bid||null; }
+$("vT2File").addEventListener("change",async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if (!f) return; try{ await setT2Img(f); }catch(err){ $("vstatus").textContent="התמונה לא נפתחה. נסי תמונה אחרת."; } vBuild(); vPreviewAt2(1); });
+$("vT2Rm").onclick=()=>{ V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null; vBuild(); vPreviewAt2(1); };
 $("vTick").onclick=()=>{ V.tick=!V.tick; vBuild(); vPreviewAt2(1); };
 $("vTickTxt").addEventListener("input",e=>{ V.tickTxt=e.target.value; vPreviewAt2(1); });
 const tickIns=h=>{ const ta=$("vTickTxt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+" "+h+" "+ta.value.slice(ta.selectionEnd||a); V.tickTxt=ta.value; vBuild(); vPreviewAt2(1); };
@@ -1765,6 +1803,9 @@ $("vSpk").onclick=()=>{ V.spk=!V.spk; vBuild(); vPreview(); };
 function vSteps(){
   setTimeout(cropState,0);
   { const tl=$("tl"), dest=V.step===4?$("tlStep4"):$("tlHome"); if (tl.parentNode!==dest) dest.appendChild(tl); $("videoView").classList.toggle("s4",V.step===4); }
+  $("vTick2").setAttribute("aria-pressed",V.tick2); $("vTick2Box").hidden=!V.tick2; if (document.activeElement!==$("vTick2Txt")) $("vTick2Txt").value=V.tick2Txt||"";
+  $("vT2Logo").setAttribute("aria-pressed",V.tick2Logo); $("vT2Pic").hidden=!V.tick2Img; if (V.tick2Img) $("vT2Pic").src=V.tick2Img.toDataURL(); $("vT2Rm").hidden=!V.tick2Img; $("vT2PicTxt").textContent=V.tick2Img?"התמונה בבאנר":"לוגו או תמונה נוספים (לא חובה)";
+  { const sp=$("vTick2Sp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tick2Speed||1)-v)<.01,v=>{ V.tick2Speed=v; vBuild(); vPreviewAt2(1); }); }
   $("vTick").setAttribute("aria-pressed",V.tick); $("vTickBox").hidden=!V.tick; if (document.activeElement!==$("vTickTxt")) $("vTickTxt").value=V.tickTxt||"";
   { const sp=$("vTickSp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tickSpeed||1)-v)<.01,v=>{ V.tickSpeed=v; vBuild(); vPreviewAt2(1); }); }
   linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
@@ -2105,8 +2146,8 @@ function projState(){
   const cur=snap(), pool=[]; HIST.reg.forEach((o,id)=>{ if (!o.blob) return; blobOf(o);
     pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol}); });
   const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate}; });
-  if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid();
-  return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step};
+  if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid(); if (V.tick2Blob && !V.tick2Bid){ V.tick2Bid=uid(); }
+  return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step, tick2Bid:V.tick2Blob?V.tick2Bid:null};
 }
 function projThumb(){ const m=V.imgs[0]; if (!m) return ""; const c=document.createElement("canvas"); c.width=90; c.height=160; const x=c.getContext("2d"); x.fillStyle="#2d0e4a"; x.fillRect(0,0,90,160); coverDraw(x,m.c,1,0,0,0,0,90,160); return c.toDataURL("image/jpeg",.6); }
 function projTouch(){ if (PJ.loading || !PJ.ok) return; if (!PJ.cur && !V.imgs.length && !V.takes.length) return; clearTimeout(PJ.timer); PJ.timer=setTimeout(projSave,1200); }
@@ -2117,6 +2158,7 @@ async function projSave(){
     const pid=PJ.cur, stt=projState();
     const toSave=[]; HIST.reg.forEach(o=>{ if (o.blob && o.bid && !PJ.saved.has(o.bid)) toSave.push([o.bid,o.blob]); });
     V.takes.forEach(t=>{ if (t.blob && !PJ.saved.has(t.bid)) toSave.push([t.bid,t.blob]); });
+    if (V.tick2Blob && !PJ.saved.has(V.tick2Bid)) toSave.push([V.tick2Bid,V.tick2Blob]);
     if (V.ownMusicBlob && !PJ.saved.has(V.ownMusicBid)) toSave.push([V.ownMusicBid,V.ownMusicBlob]);
     for (const [bid,b] of toSave){ await tx("blobs","readwrite",s=>s.put(b,pid+":"+bid)); PJ.saved.add(bid); }
     await tx("projects","readwrite",s=>s.put({id:pid,name:PJ.name,created:PJ.created,updated:Date.now(),thumb:projThumb(),count:V.imgs.length,len:Math.round(vTotal()),state:JSON.stringify(stt)}));
@@ -2148,7 +2190,7 @@ async function projDelete(id){
 const V0=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(V).filter(([k,v])=>typeof v!=="object"||v===null))));
 function vReset(){
   stopTakePreview(); stopSndPrev(); vPauseClips();
-  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null;
+  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null; V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null;
   HIST.reg=new Map(); HIST.seq=0; setOutro();
   ["vtitle","vcap","vend","vLinkEndTxt"].forEach(id=>$(id).value=""); $("vvol").value=Math.round(V.vol*100);
 }
@@ -2172,6 +2214,7 @@ async function projOpen(id){
     HIST.seq=S.hist.seq||HIST.seq;
     for (const t of S.takes){ const b=await getB(t.bid); if (b) await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); }
     V.voiceIdx=S.voiceIdx<V.takes.length?S.voiceIdx:-1;
+    if (S.tick2Bid){ const b=await getB(S.tick2Bid); if (b){ try{ await setT2Img(b,S.tick2Bid); }catch(e){} } }
     if (S.ownMusicBid){ const b=await getB(S.ownMusicBid); if (b){ try{ V.ownMusic=await loadAudio(b); V.ownMusicBlob=b; V.ownMusicBid=S.ownMusicBid; V.musicName=S.musicName; }catch(e){} } }
     const okList=(S.hist.list||[]).filter(str=>{ try{ const o=JSON.parse(str); return o.items.every(it=>HIST.reg.has(it[0])) && (o.sounds||[]).every(x=>HIST.reg.has(x[0])); }catch(e){ return false; } });
     PJ.cur=id; PJ.name=p.name; PJ.created=p.created; PJ.saved=new Set([...S.pool.map(o=>o.bid),...S.takes.map(t=>t.bid)]); if (S.ownMusicBid) PJ.saved.add(S.ownMusicBid);
