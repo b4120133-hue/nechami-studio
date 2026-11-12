@@ -74,6 +74,12 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 .vth.sel{outline:3px solid var(--gold-hi);outline-offset:2px}
 .vth em{position:absolute;top:3px;right:3px;font:700 10px var(--body);font-style:normal;background:rgba(10,2,18,.75);color:var(--gold-hi);padding:1px 5px;border-radius:6px;max-width:calc(100% - 34px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vth img{cursor:pointer}
+.capT{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;padding:2px}
+.capRow{display:flex;gap:6px;align-items:center}
+.capRow input{flex:1;min-width:0;background:rgba(10,2,18,.55);border:1px solid var(--line);border-radius:10px;color:var(--cream);font:600 15px var(--body);padding:7px 9px}
+.capTime{flex:0 0 auto;appearance:none;border:1px solid var(--line);background:rgba(233,196,106,.12);color:var(--gold-hi);border-radius:8px;font:700 12px var(--body);padding:6px 7px;cursor:pointer;font-variant-numeric:tabular-nums}
+.bar i.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .btn-rec{background:linear-gradient(180deg,#ff7a7a,#d92b2b);color:#fff;box-shadow:0 6px 18px rgba(217,43,43,.35)}
 #videoView.recmode #vstop{background:linear-gradient(180deg,#ff7a7a,#d92b2b);color:#fff;font-size:18px}
 .pjbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
@@ -160,7 +166,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 24</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 25</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -417,12 +423,15 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 
       <div class="step" data-step="3" hidden>
         <div>
-          <label class="label" for="vcap">הכיתוב על הסרטון</label>
-          <textarea id="vcap" placeholder="כל שורה או משפט יופיעו בתורם"></textarea>
-          <div class="tip">
-            <b>איך לתמלל את ההקלטה</b>
-            <span>במקליט הקול של סמסונג: פותחים את ההקלטה ← "המרת דיבור לטקסט" ← מעתיקים ← מדביקים כאן.</span>
-            <span>או: לוחצים על סמל המיקרופון במקלדת ומדברים, והטקסט נכתב לבד.</span>
+          <span class="label">הכיתוב על הסרטון</span>
+          <button class="btn btn-gold" id="vtrans" type="button">✨ תמלול אוטומטי של הדיבור</button>
+          <p class="note" id="vtransNote">מתמלל את ההקלטה ואת הדיבור בסרטונים, ושם כל משפט בדיוק בזמן שהוא נאמר. בפעם הראשונה מורידים את מנוע התמלול (כ־250MB, עדיף ב־Wi-Fi). אחר כך הוא שמור בטלפון.</p>
+          <div class="bar" id="vtransBar" hidden><i id="vtransFill"></i></div>
+          <div id="vcapT" class="capT" hidden></div>
+          <div class="row" id="vcapTbar" hidden><button class="btn btn-ghost btn-small" id="vcapTclear" type="button">מחיקת התמלול וכתיבה ידנית</button></div>
+          <div id="vcapManual">
+            <label class="note" for="vcap">או כתיבה ידנית: כל שורה או משפט יופיעו בתורם</label>
+            <textarea id="vcap" placeholder="כל שורה או משפט יופיעו בתורם"></textarea>
           </div>
         </div>
         <div id="vopts" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -1053,7 +1062,7 @@ const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classic
 const VCOLORS={white:"#ffffff",yellow:"#ffe14d",gold:"#f3cf6b",red:"#ff3838",black:"#111111",purple:"#5a1f8f"};
 const VSIZES={s:40,m:54,l:70,xl:92};
 const V={style:"morning", imgs:[], title:"", cap:"", track:0, showName:false,
-  deco:false, outro:false, cornerLogo:true, link:false, tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
+  deco:false, outro:false, cornerLogo:true, link:false, capT:[], tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
   musicKind:"quiet", ownMusic:null, musicName:"", vol:.6, ownMusicBlob:null, ownMusicBid:null, takes:[], voiceIdx:-1, voiceAt:.3, sounds:[], texts:[], rsel:null};
 let actx=null;
 function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
@@ -1287,6 +1296,7 @@ function vMain(ctx,tm,main,S){
 
 /* ----- captions ----- */
 function vChunks(){
+  if (V.capT && V.capT.length) return V.capT.filter(c=>(c.text||"").trim()).map(c=>({text:c.text.trim(),start:c.s,end:c.e}));
   const t=V.cap.trim(); if (!t) return [];
   let parts=[];
   if (V.mode==="all") parts=[t];
@@ -1435,7 +1445,7 @@ function vPreviewAt(k){ const tl=vTimeline(); vpAt=tl[k]?tl[k].start+Math.min(1.
 let vpTimer=null;
 /* ----- undo / redo (up to 10 steps back) ----- */
 const HIST={list:[], idx:-1, lock:false, timer:null, reg:new Map(), seq:0};
-const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
+const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","capT","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
@@ -1764,6 +1774,67 @@ $("vCorner").onclick=()=>{ V.cornerLogo=!V.cornerLogo; vPrep(); vBuild(); vPrevi
 function setOutro(){ OUTRO=(V.outro||V.linkEnd)?3:0; }
 $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
 const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
+/* ----- automatic transcription (Whisper, runs on the phone) ----- */
+const TR_URL="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
+let trWorker=null, trBusy=false;
+function trGetWorker(){
+  if (trWorker) return trWorker;
+  const code=`import {pipeline,env} from "${TR_URL}"; env.allowLocalModels=false; let asr=null;
+self.onmessage=async e=>{ try{
+  if(!asr){ asr=await pipeline("automatic-speech-recognition","Xenova/whisper-small",{dtype:"q8",progress_callback:p=>self.postMessage({type:"prog",p})}); }
+  self.postMessage({type:"run"});
+  const r=await asr(e.data.audio,{language:"hebrew",task:"transcribe",return_timestamps:true,chunk_length_s:30,stride_length_s:5});
+  self.postMessage({type:"done",r});
+ }catch(err){ self.postMessage({type:"err",msg:String(err&&err.message||err)}); } };`;
+  trWorker=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})),{type:"module"});
+  return trWorker;
+}
+async function to16k(buf,from,to){ from=Math.max(0,from); to=Math.min(buf.duration,to); const len=Math.max(1600,Math.ceil((to-from)*16000));
+  const oc=new OfflineAudioContext(1,len,16000), src=oc.createBufferSource(); src.buffer=buf; src.connect(oc.destination); src.start(0,from,Math.max(.1,to-from));
+  const r=await oc.startRendering(); return new Float32Array(r.getChannelData(0)); }
+function trRun(audio,onProg){ return new Promise((res,rej)=>{ let w; try{ w=trGetWorker(); }catch(e){ rej(e); return; } const files={};
+  w.onmessage=e=>{ const d=e.data;
+    if (d.type==="prog"){ const p=d.p; if (p.status==="progress" && p.file){ files[p.file]=[p.loaded||0,p.total||0]; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg("load",b?a/b:0); } }
+    else if (d.type==="run") onProg("run",0);
+    else if (d.type==="done") res(d.r); else if (d.type==="err") rej(new Error(d.msg)); };
+  w.onerror=e=>{ trWorker=null; rej(new Error(e.message||"worker")); }; w.postMessage({audio},[audio.buffer]); }); }
+function splitSeg(text,s,e){ const w=text.trim().split(/\s+/).filter(Boolean); if (w.length<=9) return [{text:w.join(" "),s,e}];
+  const out=[], n=Math.ceil(w.length/9), per=Math.ceil(w.length/n), d=(e-s)/w.length; for (let i=0;i<w.length;i+=per){ const part=w.slice(i,i+per); out.push({text:part.join(" "),s:s+i*d,e:s+(i+part.length)*d}); } return out; }
+$("vtrans").onclick=async()=>{
+  if (trBusy) return; const st=$("vtransNote");
+  const jobs=[]; const tk=voiceTake();
+  if (tk) jobs.push({get:async()=>to16k(tk.buf,tk.in,tk.out),map:ts=>V.voiceAt+ts/tk.rate,end:V.voiceAt+takeLen(tk)});
+  vTimeline().forEach(it=>{ const m=it.m; if (m.kind!=="vid"||m.mute||m.vol===0||!m.blob) return;
+    jobs.push({get:async()=>{ if (!m.abuf){ const ab=await m.blob.arrayBuffer(); m.abuf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); } return to16k(m.abuf,m.in,m.out); },map:ts=>it.start+ts/(m.rate||1),end:it.start+it.dur}); });
+  if (!jobs.length){ st.textContent="אין דיבור לתמלל: צריך הקלטה (שלב 2) או סרטון עם קול."; return; }
+  if (!window.Worker||!window.OfflineAudioContext){ st.textContent="הדפדפן הזה לא תומך בתמלול. נסי בכרום."; return; }
+  trBusy=true; $("vtrans").disabled=true; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="0%";
+  const segs=[]; let failed=false;
+  for (let j=0;j<jobs.length;j++){ const job=jobs[j];
+    try{ st.textContent="מכין את השמע…"; const audio=await job.get();
+      const r=await trRun(audio,(phase,f)=>{ if (phase==="load"){ st.textContent=`מוריד את מנוע התמלול (פעם ראשונה בלבד)… ${Math.round(f*100)}%`; fill.style.width=Math.round(f*100)+"%"; }
+        else { st.textContent=`מתמלל${jobs.length>1?` (${j+1} מתוך ${jobs.length})`:""}… זה יכול לקחת דקה-שתיים`; fill.style.width="100%"; fill.classList.add("pulse"); } });
+      (r.chunks||[{text:r.text,timestamp:[0,null]}]).forEach(c=>{ const s0=c.timestamp&&c.timestamp[0]!=null?c.timestamp[0]:0, e0=c.timestamp&&c.timestamp[1]!=null?c.timestamp[1]:s0+3;
+        const text=(c.text||"").trim(); if (!text) return; splitSeg(text,job.map(s0),Math.min(job.end,job.map(e0))).forEach(x=>segs.push(x)); });
+    }catch(e){ failed=true; st.textContent="התמלול לא הצליח"+(navigator.onLine===false?": אין חיבור לאינטרנט.":". נסי שוב, עדיף ב־Wi-Fi."); }
+  }
+  fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; trBusy=false;
+  if (segs.length){ segs.sort((a,b)=>a.s-b.s); segs.forEach((x,i)=>{ if (segs[i+1] && x.e>segs[i+1].s) x.e=segs[i+1].s; x.s=Math.round(x.s*10)/10; x.e=Math.round(Math.max(x.s+.4,x.e)*10)/10; });
+    V.capT=segs; st.textContent=`התמלול מוכן: ${segs.length} משפטים, כל אחד בזמן שלו. אפשר לתקן מילים ברשימה, ולבחור למטה כתב, מיקום, גודל וצבע.`; vBuild(); vPreview(); }
+  else if (!failed) st.textContent="לא נמצא דיבור לתמלל.";
+};
+function capTBuild(){
+  const has=V.capT&&V.capT.length, box=$("vcapT"); box.hidden=!has; $("vcapTbar").hidden=!has; $("vcapManual").hidden=!!has; if (!has) return;
+  if (box.contains(document.activeElement)) return; box.innerHTML="";
+  V.capT.forEach((c,i)=>{ const row=document.createElement("div"); row.className="capRow";
+    const tm=document.createElement("button"); tm.type="button"; tm.className="capTime"; tm.textContent=fmtS(c.s); tm.title="להציג את הרגע הזה"; tm.onclick=()=>vPreviewAt2(c.s+.2);
+    const inp=document.createElement("input"); inp.type="text"; inp.value=c.text; inp.setAttribute("aria-label","משפט "+(i+1));
+    inp.addEventListener("input",()=>{ c.text=inp.value; vPreviewAt2(c.s+.2); });
+    const del=document.createElement("button"); del.type="button"; del.className="btn btn-ghost btn-small"; del.textContent="×"; del.setAttribute("aria-label","מחיקת משפט "+(i+1));
+    del.onclick=()=>{ V.capT.splice(i,1); vBuild(); vPreview(); };
+    row.append(tm,inp,del); box.appendChild(row); });
+}
+$("vcapTclear").onclick=()=>{ V.capT=[]; vBuild(); vPreview(); $("vtransNote").textContent="התמלול נמחק. אפשר לתמלל שוב או לכתוב ידנית."; };
 $("vTick2").onclick=()=>{ V.tick2=!V.tick2; vPrep(); vBuild(); vPreviewAt2(1); };
 $("vTick2Txt").addEventListener("input",e=>{ V.tick2Txt=e.target.value; vPreviewAt2(1); });
 const t2Ins=h=>{ const ta=$("vTick2Txt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+h+ta.value.slice(ta.selectionEnd||a); V.tick2Txt=ta.value; vBuild(); vPreviewAt2(1); ta.focus(); };
@@ -1808,7 +1879,7 @@ function vSteps(){
   { const sp=$("vTick2Sp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tick2Speed||1)-v)<.01,v=>{ V.tick2Speed=v; vBuild(); vPreviewAt2(1); }); }
   $("vTick").setAttribute("aria-pressed",V.tick); $("vTickBox").hidden=!V.tick; if (document.activeElement!==$("vTickTxt")) $("vTickTxt").value=V.tickTxt||"";
   { const sp=$("vTickSp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tickSpeed||1)-v)<.01,v=>{ V.tickSpeed=v; vBuild(); vPreviewAt2(1); }); }
-  linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
+  capTBuild(); linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
   document.querySelectorAll("#videoView .step").forEach(el=>el.hidden=+el.dataset.step!==V.step);
   document.querySelectorAll("#vsteps .stp").forEach(b=>b.setAttribute("aria-current",+b.dataset.go===V.step?"step":"false"));
   $("vprev").style.visibility=V.step>1?"visible":"hidden";
@@ -2190,7 +2261,7 @@ async function projDelete(id){
 const V0=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(V).filter(([k,v])=>typeof v!=="object"||v===null))));
 function vReset(){
   stopTakePreview(); stopSndPrev(); vPauseClips();
-  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null; V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null;
+  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null; V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null; V.capT=[];
   HIST.reg=new Map(); HIST.seq=0; setOutro();
   ["vtitle","vcap","vend","vLinkEndTxt"].forEach(id=>$(id).value=""); $("vvol").value=Math.round(V.vol*100);
 }
