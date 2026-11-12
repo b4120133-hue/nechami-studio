@@ -172,7 +172,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 33</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 34</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -432,14 +432,25 @@ input[type=range]{width:100%;accent-color:var(--gold)}
           <div class="row"><button class="btn btn-ghost btn-small" id="vlisten" type="button">האזנה למוזיקה</button></div>
           <label class="note" for="vvol">עוצמת המוזיקה</label>
           <input type="range" id="vvol" min="0" max="100" value="60">
+          <div class="itemPanel" style="gap:10px">
+            <div class="chips"><button class="chip" id="vduck" type="button" aria-pressed="true">🎚️ מוזיקה חכמה: שקטה בזמן דיבור, עולה בהפסקות</button></div>
+            <div id="vduckBox" class="opt-group">
+              <span class="note">המוזיקה עולה כשיש הפסקה בדיבור של לפחות:</span>
+              <div class="chips" id="vduckGap"></div>
+              <label class="note" for="vduckLow">עוצמת המוזיקה בזמן דיבור: <b id="vduckLowTxt">20%</b> מהעוצמה המלאה</label>
+              <input type="range" id="vduckLow" min="0" max="60" value="20">
+              <p class="note">חל גם על סאונדים שהוספת בשלב 4 (לא על ההקלטות).</p>
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="step" data-step="3" hidden>
         <div>
           <span class="label">הכיתוב על הסרטון</span>
+          <div class="opt-group"><span class="note">מנוע התמלול</span><div class="chips" id="vtrKind"></div><p class="note" id="vtrKindNote"></p></div>
           <button class="btn btn-gold" id="vtrans" type="button">✨ תמלול אוטומטי של הדיבור</button>
-          <p class="note" id="vtransNote">מתמלל את ההקלטה ואת הדיבור בסרטונים, ושם כל משפט בדיוק בזמן שהוא נאמר. בפעם הראשונה מורידים את מנוע התמלול (כ־250MB, עדיף ב־Wi-Fi). אחר כך הוא שמור בטלפון.</p>
+          <p class="note" id="vtransNote">מתמלל את ההקלטות ואת הדיבור בסרטונים, ושם כל משפט בדיוק בזמן שהוא נאמר. המנוע יורד פעם אחת ונשמר בטלפון.</p>
           <div class="bar" id="vtransBar" hidden><i id="vtransFill"></i></div>
           <div id="vcapT" class="capT" hidden></div>
           <div class="row" id="vcapTbar" hidden><button class="btn btn-ghost btn-small" id="vcapTclear" type="button">מחיקת התמלול וכתיבה ידנית</button></div>
@@ -1148,7 +1159,7 @@ const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classic
 const VCOLORS={white:"#ffffff",yellow:"#ffe14d",gold:"#f3cf6b",red:"#ff3838",black:"#111111",purple:"#5a1f8f"};
 const VSIZES={s:40,m:54,l:70,xl:92};
 const V={style:"morning", imgs:[], title:"", cap:"", track:0, showName:false,
-  deco:false, outro:false, cornerLogo:true, link:false, capT:[], tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
+  duck:true, duckGap:3, duckLow:.2, deco:false, outro:false, cornerLogo:true, link:false, capT:[], tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
   musicKind:"quiet", ownMusic:null, musicName:"", vol:.6, ownMusicBlob:null, ownMusicBid:null, takes:[], voiceIdx:-1, voiceAt:.3, sounds:[], texts:[], rsel:null};
 let actx=null;
 function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
@@ -1531,7 +1542,7 @@ function vPreviewAt(k){ const tl=vTimeline(); vpAt=tl[k]?tl[k].start+Math.min(1.
 let vpTimer=null;
 /* ----- undo / redo (up to 10 steps back) ----- */
 const HIST={list:[], idx:-1, lock:false, timer:null, reg:new Map(), seq:0};
-const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","capT","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
+const SNAP_KEYS=["duck","duckGap","duckLow","voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","capT","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
@@ -1873,16 +1884,17 @@ $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
 const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
 /* ----- automatic transcription (Whisper, runs on the phone) ----- */
 const TR_URL="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
-let trWorker=null, trBusy=false;
+let trWorker=null, trBusy=false, trKind="good";
+try{ trKind=localStorage.getItem("trKind")||"good"; }catch(e){}
 function trGetWorker(){
   if (trWorker) return trWorker;
-  const code=`import {pipeline,env} from "${TR_URL}"; env.allowLocalModels=false; let asr=null;
-self.onmessage=async e=>{ try{
-  if(!asr){ asr=await pipeline("automatic-speech-recognition","Xenova/whisper-small",{dtype:"q8",progress_callback:p=>self.postMessage({type:"prog",p})}); }
-  self.postMessage({type:"run"});
-  const r=await asr(e.data.audio,{language:"hebrew",task:"transcribe",return_timestamps:true,chunk_length_s:30,stride_length_s:5});
-  self.postMessage({type:"done",r});
- }catch(err){ self.postMessage({type:"err",msg:String(err&&err.message||err)}); } };`;
+  const code=`import {pipeline,env} from "${TR_URL}"; env.allowLocalModels=false; const P={};
+const MODELS={good:{id:"ivrit-ai/whisper-large-v3-turbo-onnx",dtype:{encoder_model:"q4",decoder_model_merged:"q4"}},fast:{id:"Xenova/whisper-small",dtype:"q8"}};
+async function get(kind,dev){ const k=kind+dev; if (!P[k]){ const m=MODELS[kind]; P[k]=await pipeline("automatic-speech-recognition",m.id,{dtype:m.dtype,device:dev,progress_callback:p=>self.postMessage({type:"prog",p})}); } return P[k]; }
+self.onmessage=async e=>{ const kind=e.data.kind||"good"; const opts={language:"hebrew",task:"transcribe",return_timestamps:true,chunk_length_s:30,stride_length_s:5};
+ let devs=("gpu" in navigator)?["webgpu","wasm"]:["wasm"], last=null;
+ for (const dev of devs){ try{ const asr=await get(kind,dev); self.postMessage({type:"run"}); const r=await asr(e.data.audio,opts); self.postMessage({type:"done",r}); return; }catch(err){ last=err; } }
+ self.postMessage({type:"err",msg:String(last&&last.message||last)}); };`;
   trWorker=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})),{type:"module"});
   return trWorker;
 }
@@ -1894,7 +1906,7 @@ function trRun(audio,onProg){ return new Promise((res,rej)=>{ let w; try{ w=trGe
     if (d.type==="prog"){ const p=d.p; if (p.status==="progress" && p.file){ files[p.file]=[p.loaded||0,p.total||0]; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg("load",b?a/b:0); } }
     else if (d.type==="run") onProg("run",0);
     else if (d.type==="done") res(d.r); else if (d.type==="err") rej(new Error(d.msg)); };
-  w.onerror=e=>{ trWorker=null; rej(new Error(e.message||"worker")); }; w.postMessage({audio},[audio.buffer]); }); }
+  w.onerror=e=>{ trWorker=null; rej(new Error(e.message||"worker")); }; w.postMessage({audio,kind:trKind},[audio.buffer]); }); }
 function splitSeg(text,s,e){ const w=text.trim().split(/\s+/).filter(Boolean); if (w.length<=9) return [{text:w.join(" "),s,e}];
   const out=[], n=Math.ceil(w.length/9), per=Math.ceil(w.length/n), d=(e-s)/w.length; for (let i=0;i<w.length;i+=per){ const part=w.slice(i,i+per); out.push({text:part.join(" "),s:s+i*d,e:s+(i+part.length)*d}); } return out; }
 $("vtrans").onclick=async()=>{
@@ -1921,6 +1933,8 @@ $("vtrans").onclick=async()=>{
     V.capT=segs; st.textContent=`התמלול מוכן: ${segs.length} משפטים, כל אחד בזמן שלו. אפשר לתקן מילים ברשימה, ולבחור למטה כתב, מיקום, גודל וצבע.`; vBuild(); vPreview(); }
   else if (!failed) st.textContent="לא נמצא דיבור לתמלל.";
 };
+function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ trKind=k; try{ localStorage.setItem("trKind",k); }catch(e){} trKindUI(); });
+  $("vtrKindNote").textContent=trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים כ־760MB (רק ב־Wi-Fi), והתמלול לוקח יותר זמן.":"מנוע כללי וקל יותר (כ־250MB). מהיר יותר, אבל עם יותר טעויות בעברית."; }
 function capTBuild(){
   const has=V.capT&&V.capT.length, box=$("vcapT"); box.hidden=!has; $("vcapTbar").hidden=!has; $("vcapManual").hidden=!!has; if (!has) return;
   if (box.contains(document.activeElement)) return; box.innerHTML="";
@@ -1977,7 +1991,9 @@ function vSteps(){
   { const sp=$("vTick2Sp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tick2Speed||1)-v)<.01,v=>{ V.tick2Speed=v; vBuild(); vPreviewAt2(1); }); }
   $("vTick").setAttribute("aria-pressed",V.tick); $("vTickBox").hidden=!V.tick; if (document.activeElement!==$("vTickTxt")) $("vTickTxt").value=V.tickTxt||"";
   { const sp=$("vTickSp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tickSpeed||1)-v)<.01,v=>{ V.tickSpeed=v; vBuild(); vPreviewAt2(1); }); }
-  capTBuild(); linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
+  $("vduck").setAttribute("aria-pressed",V.duck); $("vduckBox").hidden=!V.duck; $("vduckLow").value=Math.round(V.duckLow*100); $("vduckLowTxt").textContent=Math.round(V.duckLow*100)+"%";
+  { const g=$("vduckGap"); g.innerHTML=""; chipGroup(g,[[2,"2 שניות"],[3,"3 שניות"],[4,"4 שניות"],[5,"5 שניות"]],v=>V.duckGap===v,v=>{ V.duckGap=v; vBuild(); vPreview(); }); }
+  capTBuild(); trKindUI(); linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
   document.querySelectorAll("#videoView .step").forEach(el=>el.hidden=+el.dataset.step!==V.step);
   document.querySelectorAll("#vsteps .stp").forEach(b=>b.setAttribute("aria-current",+b.dataset.go===V.step?"step":"false"));
   $("vprev").style.visibility=V.step>1?"visible":"hidden";
@@ -2098,6 +2114,35 @@ function takeToTimeline(t){
   $("vstatus").textContent=`ההקלטה נוספה לסרגל, מיד אחרי ההקלטה הקודמת (בשנייה ${sd.at.toFixed(1)}). אפשר לגרור אותה למקום אחר בשלב 4.`+(need>have+.5?` היא ממשיכה אחרי סוף התמונות: כדאי להוסיף או להאריך תמונות.`:"");
   vBuild(); vPreview();
 }
+/* ----- speech detection for smart music ----- */
+function envOf(buf){ if (buf._env) return buf._env; const d=buf.getChannelData(0), sr=buf.sampleRate, win=Math.round(sr*.05), n=Math.floor(d.length/win), e=new Float32Array(n);
+  for (let i=0;i<n;i++){ let a=0; for (let j=i*win;j<(i+1)*win;j+=2){ a+=d[j]*d[j]; } e[i]=Math.sqrt(a/(win/2)); }
+  const sorted=Array.from(e).sort((x,y)=>x-y), lo=sorted[Math.floor(n*.2)]||0, hi=sorted[Math.floor(n*.95)]||0, th=Math.max(.008,lo+(hi-lo)*.22);
+  buf._env={e,step:.05,th}; return buf._env; }
+function speechZones(T){
+  const raw=[];
+  const add=(buf,from,to,at,rate)=>{ if (!buf) return; const E=envOf(buf); let st=null;
+    for (let i=Math.floor(from/E.step);i<Math.min(E.e.length,Math.ceil(to/E.step));i++){ const on=E.e[i]>E.th, vt=at+(i*E.step-from)/rate;
+      if (on && st==null) st=vt; if (!on && st!=null){ raw.push([st,vt]); st=null; } }
+    if (st!=null) raw.push([st,at+(to-from)/rate]); };
+  const tk=voiceTake(); if (tk) add(tk.buf,tk.in,tk.out,V.voiceAt,tk.rate||1);
+  V.sounds.forEach(sd=>{ if (sd.voice && sd.vol!==0) add(sd.buf,sd.in,sd.out,sd.at,sd.rate||1); });
+  raw.sort((a,b)=>a[0]-b[0]); const z=[];
+  raw.forEach(([a,b])=>{ if (b-a<.12) return; const last=z[z.length-1]; if (last && a-last[1]<V.duckGap) last[1]=Math.max(last[1],b); else z.push([a,b]); });
+  return z.map(([a,b])=>[Math.max(0,a-.25),Math.min(T,b+.35)]);
+}
+function duckAutomate(gp,t0,T,full,zones,fadeIn){
+  const low=full*V.duckLow, R=.6; gp.cancelScheduledValues(0);
+  const startLow=zones.length && zones[0][0]<R+.2;
+  gp.setValueAtTime(fadeIn?0:(startLow?low:full),t0); gp.linearRampToValueAtTime(startLow?low:full,t0+(fadeIn?.8:.05));
+  let cur=startLow?low:full, tPrev=t0+(fadeIn?.8:.05);
+  zones.forEach(([a,b])=>{ const ta=Math.max(tPrev,t0+a-R), tb=t0+a; if (cur!==low){ gp.setValueAtTime(cur,ta); gp.linearRampToValueAtTime(low,Math.max(ta+.05,tb)); cur=low; }
+    const tc=t0+b; gp.setValueAtTime(low,tc); if (b<T-1){ gp.linearRampToValueAtTime(full,tc+R); cur=full; tPrev=tc+R; } else tPrev=tc; });
+  if (fadeIn){ const tf=t0+Math.max(T-1.8,(tPrev-t0)+.05); gp.setValueAtTime(cur,tf); gp.linearRampToValueAtTime(0,t0+T); }
+}
+$("vduck").onclick=()=>{ V.duck=!V.duck; vBuild(); };
+$("vduckLow").addEventListener("input",e=>{ V.duckLow=e.target.value/100; $("vduckLowTxt").textContent=e.target.value+"%"; });
+$("vduckLow").addEventListener("change",()=>{ vBuild(); vPreview(); });
 async function addTake(f,o){ o=o||{};
   try{ const buf=await loadAudio(f), url=URL.createObjectURL(f), el=new Audio(url); el.preload="auto"; el.preservesPitch=true;
     const st0=Math.min(buf.duration-.3,o.trimStart||0);
@@ -2148,10 +2193,14 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   const tracks=record?[...vcan.captureStream(30).getVideoTracks()]:[]; let t0a=0; const srcs=[];
   if (ac){ const dest=record?ac.createMediaStreamDestination():null; t0a=ac.currentTime+.2;
     const route=n=>{ if(dest) n.connect(dest); n.connect(ac.destination); };
-    if (music){ const s=ac.createBufferSource(), g=ac.createGain(), lvl=V.vol*((voiceTake()||V.sounds.some(x=>x.voice))?.3:1); s.buffer=music; s.loop=true;
-      g.gain.setValueAtTime(0,t0a); g.gain.linearRampToValueAtTime(lvl,t0a+.8); g.gain.setValueAtTime(lvl,t0a+Math.max(.9,T-1.8)); g.gain.linearRampToValueAtTime(0,t0a+T);
+    const talk=speechZones(T), hasVoice=!!(voiceTake()||V.sounds.some(x=>x.voice));
+    if (music){ const s=ac.createBufferSource(), g=ac.createGain(); s.buffer=music; s.loop=true;
+      if (V.duck && hasVoice) duckAutomate(g.gain,t0a,T,V.vol,talk,true);
+      else { const lvl=V.vol*(hasVoice?.3:1); g.gain.setValueAtTime(0,t0a); g.gain.linearRampToValueAtTime(lvl,t0a+.8); g.gain.setValueAtTime(lvl,t0a+Math.max(.9,T-1.8)); g.gain.linearRampToValueAtTime(0,t0a+T); }
       s.connect(g); route(g); s.start(t0a); s.stop(t0a+T+.2); srcs.push(s); }
-    stopSndPrev(); V.sounds.forEach(sd=>{ takeNode(sd); if (sd.gain){ sd.gain.gain.value=silent?0:sd.vol; if (dest) sd.gain.connect(dest); } });
+    stopSndPrev(); V.sounds.forEach(sd=>{ takeNode(sd); if (sd.gain){ const gp=sd.gain.gain; gp.cancelScheduledValues(0);
+      if (silent) gp.value=0; else if (V.duck && hasVoice && !sd.voice) duckAutomate(gp,t0a,T,sd.vol,talk,false); else gp.value=sd.vol;
+      if (dest) sd.gain.connect(dest); } });
     const tk=silent?null:voiceTake(); if (tk){ stopTakePreview(); takeNode(tk); if (tk.gain) tk.gain.gain.value=tk.vol==null?1:tk.vol; if (tk.gain && dest) tk.gain.connect(dest); tk.el.playbackRate=tk.rate; tk.el.preservesPitch=true; }
     V.imgs.forEach(m=>{ if (m.kind!=="vid") return;
       try{ if (!m.srcNode){ m.srcNode=ac.createMediaElementSource(m.el); m.gain=ac.createGain(); m.srcNode.connect(m.gain); }
@@ -2163,7 +2212,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
     catch(e){ st.textContent="לא הצלחתי להתחיל את היצירה במכשיר הזה."; srcs.forEach(s=>{try{s.stop();}catch(_){}}); vEndUI(); return; }
     rec.ondataavailable=e=>{ if (e.data&&e.data.size) parts.push(e.data); };
   }
-  const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
+  const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.gain.cancelScheduledValues(0); sd.gain.gain.value=sd.vol==null?1:sd.vol; sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
     if (!record){ vEndUI(); st.textContent=""; vPreview(); if (opts.onDone) opts.onDone(); return; }
     rec.onstop=()=>{ tracks.forEach(t=>t.stop());
       if (vStopFlag){ vEndUI(); st.textContent="היצירה הופסקה. העריכה נשמרה."; vPreview(); return; }
