@@ -82,6 +82,7 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 .capRow input{flex:1;min-width:0;background:rgba(10,2,18,.55);border:1px solid var(--line);border-radius:10px;color:var(--cream);font:600 15px var(--body);padding:7px 9px}
 .capTime{flex:0 0 auto;appearance:none;border:1px solid var(--line);background:rgba(233,196,106,.12);color:var(--gold-hi);border-radius:8px;font:700 12px var(--body);padding:6px 7px;cursor:pointer;font-variant-numeric:tabular-nums}
 .bar i.pulse{animation:pulse 1.2s ease-in-out infinite}
+.note.warn{color:#ffd27a;font-weight:700}
 @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .btn-rec{background:linear-gradient(180deg,#ff7a7a,#d92b2b);color:#fff;box-shadow:0 6px 18px rgba(217,43,43,.35)}
 #videoView.recmode #vstop{background:linear-gradient(180deg,#ff7a7a,#d92b2b);color:#fff;font-size:18px}
@@ -177,7 +178,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 37</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 38</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -457,6 +458,8 @@ input[type=range]{width:100%;accent-color:var(--gold)}
           <button class="btn btn-gold" id="vtrans" type="button">✨ תמלול אוטומטי של הדיבור</button>
           <p class="note" id="vtransNote">מתמלל את ההקלטות ואת הדיבור בסרטונים, ושם כל משפט בדיוק בזמן שהוא נאמר. המנוע יורד פעם אחת ונשמר בטלפון.</p>
           <div class="bar" id="vtransBar" hidden><i id="vtransFill"></i></div>
+          <div class="row" style="justify-content:center"><button class="btn btn-ghost btn-small" id="vtransCancel" type="button" hidden>ביטול התמלול</button></div>
+          <p class="note" id="vtransErr" style="opacity:.6;font-size:12px;direction:ltr;text-align:left"></p>
           <div id="vcapT" class="capT" hidden></div>
           <div class="row" id="vcapTbar" hidden><button class="btn btn-ghost btn-small" id="vcapTclear" type="button">מחיקת התמלול וכתיבה ידנית</button></div>
           <div id="vcapManual">
@@ -1950,56 +1953,89 @@ $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
 const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
 /* ----- automatic transcription (Whisper, runs on the phone) ----- */
 const TR_URL="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
-let trWorker=null, trBusy=false, trKind="good";
-try{ trKind=localStorage.getItem("trKind")||"good"; }catch(e){}
+let trWorker=null, trBusy=false, trKind="good", trNoGpu=false, trCancel=null;
+try{ trKind=localStorage.getItem("trKind")||"good"; trNoGpu=localStorage.getItem("trNoGpu")==="1"; }catch(e){}
+function trKill(){ if (trWorker){ try{ trWorker.terminate(); }catch(e){} } trWorker=null; }
 function trGetWorker(){
   if (trWorker) return trWorker;
   const code=`import {pipeline,env} from "${TR_URL}"; env.allowLocalModels=false; const P={};
+self.postMessage({type:"lib"});
 const MODELS={good:{id:"ivrit-ai/whisper-large-v3-turbo-onnx",dtype:{encoder_model:"q4",decoder_model_merged:"q4"}},fast:{id:"Xenova/whisper-small",dtype:"q8"}};
 async function get(kind,dev){ const k=kind+dev; if (!P[k]){ const m=MODELS[kind]; P[k]=await pipeline("automatic-speech-recognition",m.id,{dtype:m.dtype,device:dev,progress_callback:p=>self.postMessage({type:"prog",p})}); } return P[k]; }
 self.onmessage=async e=>{ const kind=e.data.kind||"good"; const opts={language:"hebrew",task:"transcribe",return_timestamps:true,chunk_length_s:30,stride_length_s:5};
- let devs=("gpu" in navigator)?["webgpu","wasm"]:["wasm"], last=null;
- for (const dev of devs){ try{ const asr=await get(kind,dev); self.postMessage({type:"run"}); const r=await asr(e.data.audio,opts); self.postMessage({type:"done",r}); return; }catch(err){ last=err; } }
+ let devs=(!e.data.noGpu && ("gpu" in navigator))?["webgpu","wasm"]:["wasm"], last=null;
+ for (const dev of devs){ try{ const asr=await get(kind,dev); self.postMessage({type:"run",dev}); const r=await asr(e.data.audio,opts); self.postMessage({type:"done",r}); return; }catch(err){ last=err; self.postMessage({type:"note",msg:dev+": "+String(err&&err.message||err)}); } }
  self.postMessage({type:"err",msg:String(last&&last.message||last)}); };`;
   trWorker=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})),{type:"module"});
   return trWorker;
 }
-async function to16k(buf,from,to){ from=Math.max(0,from); to=Math.min(buf.duration,to); const len=Math.max(1600,Math.ceil((to-from)*16000));
+async function bufOf(o){ if (o.buf) return o.buf; if (!o.blob) throw new Error("no audio");
+  const ab=await o.blob.arrayBuffer(); o.buf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); return o.buf; }
+async function to16k(buf,from,to){ from=Math.max(0,from||0); to=Math.min(buf.duration,to==null?buf.duration:to); const len=Math.max(1600,Math.ceil((to-from)*16000));
   const oc=new OfflineAudioContext(1,len,16000), src=oc.createBufferSource(); src.buffer=buf; src.connect(oc.destination); src.start(0,from,Math.max(.1,to-from));
   const r=await oc.startRendering(); return new Float32Array(r.getChannelData(0)); }
-function trRun(audio,onProg){ return new Promise((res,rej)=>{ let w; try{ w=trGetWorker(); }catch(e){ rej(e); return; } const files={};
-  w.onmessage=e=>{ const d=e.data;
-    if (d.type==="prog"){ const p=d.p; if (p.status==="progress" && p.file){ files[p.file]=[p.loaded||0,p.total||0]; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg("load",b?a/b:0); } }
-    else if (d.type==="run") onProg("run",0);
-    else if (d.type==="done") res(d.r); else if (d.type==="err") rej(new Error(d.msg)); };
-  w.onerror=e=>{ trWorker=null; rej(new Error(e.message||"worker")); }; w.postMessage({audio,kind:trKind},[audio.buffer]); }); }
+/* runs one piece of audio; never hangs: a watchdog stops a stuck download or a crashed engine */
+function trRun(audio,kind,onProg){ return new Promise((res,rej)=>{ let w; try{ w=trGetWorker(); }catch(e){ rej(e); return; } const files={};
+  const secs=audio.length/16000; let phase="lib", timer=null, done=false, gpuUsed=false;
+  const finish=(err,val)=>{ if (done) return; done=true; clearTimeout(timer); trCancel=null; if (err){ trKill(); rej(err); } else res(val); };
+  const arm=()=>{ clearTimeout(timer); const ms=phase==="run"?(120+secs*(kind==="good"?10:5))*1000:(phase==="lib"?60000:120000);
+    timer=setTimeout(()=>{ if (phase==="run" && gpuUsed){ trNoGpu=true; try{ localStorage.setItem("trNoGpu","1"); }catch(e){} }
+      finish(new Error(phase==="run"?"stuck-run":"stuck-load")); },ms); };
+  trCancel=()=>finish(new Error("cancel"));
+  arm();
+  w.onmessage=e=>{ const d=e.data; if (done) return;
+    if (d.type==="lib"){ phase="load"; arm(); onProg("load",0); }
+    else if (d.type==="prog"){ const p=d.p; phase="load"; arm(); if (p.file && (p.status==="progress"||p.status==="initiate"||p.status==="done")){ const cur=files[p.file]||[0,0]; files[p.file]=p.status==="progress"?[p.loaded||0,p.total||0]:p.status==="done"?[cur[1]||cur[0],cur[1]||cur[0]]:cur; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg("load",b?a/b:0); } }
+    else if (d.type==="note"){ console.warn("tr",d.msg); }
+    else if (d.type==="run"){ phase="run"; gpuUsed=d.dev==="webgpu"; arm(); onProg("run",0); }
+    else if (d.type==="done") finish(null,d.r); else if (d.type==="err") finish(new Error(d.msg)); };
+  w.onerror=e=>{ e.preventDefault&&e.preventDefault(); finish(new Error("worker: "+(e.message||"load failed"))); };
+  w.postMessage({audio,kind,noGpu:trNoGpu},[audio.buffer]); }); }
 function splitSeg(text,s,e){ const w=text.trim().split(/\s+/).filter(Boolean); if (w.length<=9) return [{text:w.join(" "),s,e}];
   const out=[], n=Math.ceil(w.length/9), per=Math.ceil(w.length/n), d=(e-s)/w.length; for (let i=0;i<w.length;i+=per){ const part=w.slice(i,i+per); out.push({text:part.join(" "),s:s+i*d,e:s+(i+part.length)*d}); } return out; }
 $("vtrans").onclick=async()=>{
-  if (trBusy) return; const st=$("vtransNote");
+  const st=$("vtransNote");
+  if (trBusy){ st.textContent="התמלול עדיין רץ. אפשר לחכות, או ללחוץ על \"ביטול\" ולנסות שוב."; return; }
   const jobs=[]; const tk=voiceTake();
-  if (tk) jobs.push({get:async()=>to16k(tk.buf,tk.in,tk.out),map:ts=>V.voiceAt+ts/tk.rate,end:V.voiceAt+takeLen(tk)});
-  V.sounds.forEach(sd=>{ if (!sd.voice||!sd.buf||sd.vol===0) return; const r=sd.rate||1; jobs.push({get:async()=>to16k(sd.buf,sd.in,sd.out),map:ts=>sd.at+ts/r,end:sd.at+(sd.out-sd.in)/r}); });
+  if (tk) jobs.push({get:async()=>{ const bf=await bufOf(tk); return to16k(bf,tk.in,tk.out); },map:ts=>V.voiceAt+ts/(tk.rate||1),end:V.voiceAt+takeLen(tk)});
+  V.sounds.forEach(sd=>{ if (!sd.voice||(!sd.buf&&!sd.blob)||sd.vol===0) return; const r=sd.rate||1; jobs.push({get:async()=>{ const bf=await bufOf(sd); return to16k(bf,sd.in,sd.out); },map:ts=>sd.at+ts/r,end:sd.at+((sd.out==null?(sd.buf?sd.buf.duration:0):sd.out)-(sd.in||0))/r}); });
   vTimeline().forEach(it=>{ const m=it.m; if (m.kind!=="vid"||m.mute||m.vol===0||!m.blob) return;
     jobs.push({get:async()=>{ if (!m.abuf){ const ab=await m.blob.arrayBuffer(); m.abuf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); } return to16k(m.abuf,m.in,m.out); },map:ts=>it.start+ts/(m.rate||1),end:it.start+it.dur}); });
-  if (!jobs.length){ st.textContent="אין דיבור לתמלל: צריך הקלטה (שלב 2) או סרטון עם קול."; return; }
-  if (!window.Worker||!window.OfflineAudioContext){ st.textContent="הדפדפן הזה לא תומך בתמלול. נסי בכרום."; return; }
-  trBusy=true; $("vtrans").disabled=true; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="0%";
-  const segs=[]; let failed=false;
-  for (let j=0;j<jobs.length;j++){ const job=jobs[j];
-    try{ st.textContent="מכין את השמע…"; const audio=await job.get();
-      const r=await trRun(audio,(phase,f)=>{ if (phase==="load"){ st.textContent=`מוריד את מנוע התמלול (פעם ראשונה בלבד)… ${Math.round(f*100)}%`; fill.style.width=Math.round(f*100)+"%"; }
-        else { st.textContent=`מתמלל${jobs.length>1?` (${j+1} מתוך ${jobs.length})`:""}… זה יכול לקחת דקה-שתיים`; fill.style.width="100%"; fill.classList.add("pulse"); } });
-      (r.chunks||[{text:r.text,timestamp:[0,null]}]).forEach(c=>{ const s0=c.timestamp&&c.timestamp[0]!=null?c.timestamp[0]:0, e0=c.timestamp&&c.timestamp[1]!=null?c.timestamp[1]:s0+3;
-        const text=(c.text||"").trim(); if (!text) return; splitSeg(text,job.map(s0),Math.min(job.end,job.map(e0))).forEach(x=>segs.push(x)); });
-    }catch(e){ failed=true; st.textContent="התמלול לא הצליח"+(navigator.onLine===false?": אין חיבור לאינטרנט.":". נסי שוב, עדיף ב־Wi-Fi."); }
+  if (!jobs.length){ st.textContent="⚠️ אין דיבור לתמלל. קודם צריך הקלטה (בשלב 2), או סרטון עם קול."; st.classList.add("warn"); return; }
+  if (!window.Worker||!window.OfflineAudioContext){ st.textContent="הדפדפן הזה לא תומך בתמלול. פתחי את האפליקציה בכרום."; return; }
+  st.classList.remove("warn"); $("vtransErr").textContent="";
+  trBusy=true; $("vtrans").disabled=true; $("vtransCancel").hidden=false; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="3%";
+  st.textContent="מתחיל… מתחבר למנוע התמלול";
+  const segs=[]; let failed=false, cancelled=false, kind=trKind, errMsg="";
+  for (let j=0;j<jobs.length && !cancelled;j++){ const job=jobs[j];
+    let audio=null;
+    try{ st.textContent="מכין את השמע…"; audio=await job.get(); }catch(e){ failed=true; errMsg="audio: "+(e.message||e); continue; }
+    for (let attempt=0; attempt<3; attempt++){
+      const a=audio.slice();
+      try{
+        const r=await trRun(a,kind,(phase,f)=>{ fill.classList.remove("pulse");
+          if (phase==="load"){ st.textContent=`מוריד את מנוע התמלול${kind==="good"?" המדויק":" המהיר"} (רק בפעם הראשונה)… ${Math.round(f*100)}%`; fill.style.width=Math.max(3,Math.round(f*100))+"%"; }
+          else { st.textContent=`מתמלל${jobs.length>1?` (${j+1} מתוך ${jobs.length})`:""}… זה יכול לקחת כמה דקות. לא לסגור את האפליקציה.`; fill.style.width="100%"; fill.classList.add("pulse"); } });
+        (r.chunks||[{text:r.text,timestamp:[0,null]}]).forEach(c=>{ const s0=c.timestamp&&c.timestamp[0]!=null?c.timestamp[0]:0, e0=c.timestamp&&c.timestamp[1]!=null?c.timestamp[1]:s0+3;
+          const text=(c.text||"").trim(); if (!text) return; splitSeg(text,job.map(s0),Math.min(job.end,job.map(e0))).forEach(x=>segs.push(x)); });
+        break;
+      }catch(e){ errMsg=String(e.message||e);
+        if (errMsg==="cancel"){ cancelled=true; break; }
+        if (navigator.onLine===false){ failed=true; break; }
+        if (kind==="good" && attempt>=1){ kind="fast"; st.textContent="המנוע המדויק לא עבד בטלפון הזה. מנסה עם המנוע המהיר…"; continue; }
+        if (attempt<2){ st.textContent="משהו נתקע, מנסה שוב…"; continue; }
+        failed=true; }
+    }
   }
-  fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; trBusy=false;
+  fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; $("vtransCancel").hidden=true; trBusy=false;
+  if (cancelled){ st.textContent="התמלול בוטל. אפשר ללחוץ שוב על התמלול."; return; }
   if (segs.length){ segs.sort((a,b)=>a.s-b.s); segs.forEach((x,i)=>{ if (segs[i+1] && x.e>segs[i+1].s) x.e=segs[i+1].s; x.s=Math.round(x.s*10)/10; x.e=Math.round(Math.max(x.s+.4,x.e)*10)/10; });
-    V.capT=segs; st.textContent=`התמלול מוכן: ${segs.length} משפטים, כל אחד בזמן שלו. אפשר לתקן מילים ברשימה, ולבחור למטה כתב, מיקום, גודל וצבע.`; vBuild(); vPreview(); }
-  else if (!failed) st.textContent="לא נמצא דיבור לתמלל.";
+    V.capT=segs; st.textContent=`✓ התמלול מוכן: ${segs.length} משפטים, כל אחד בזמן שלו.${kind!==trKind?" (נעשה עם המנוע המהיר.)":""} אפשר לתקן מילים ברשימה, ולבחור למטה כתב, מיקום, גודל וצבע.`; vBuild(); vPreview(); }
+  else if (failed){ st.textContent="⚠️ התמלול לא הצליח"+(navigator.onLine===false?": אין חיבור לאינטרנט.":". כדאי לנסות שוב ב־Wi-Fi, או לבחור את המנוע \"מהיר\"."); st.classList.add("warn"); $("vtransErr").textContent="פרטים לבדיקה: "+errMsg.slice(0,160); }
+  else st.textContent="לא נמצא דיבור לתמלל.";
 };
-function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ trKind=k; try{ localStorage.setItem("trKind",k); }catch(e){} trKindUI(); });
+$("vtransCancel").onclick=()=>{ if (trCancel) trCancel(); else { trKill(); } };
+function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ if (trBusy) return; trKind=k; trKill(); try{ localStorage.setItem("trKind",k); }catch(e){} trKindUI(); });
   $("vtrKindNote").textContent=trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים כ־760MB (רק ב־Wi-Fi), והתמלול לוקח יותר זמן.":"מנוע כללי וקל יותר (כ־250MB). מהיר יותר, אבל עם יותר טעויות בעברית."; }
 function capTBuild(){
   const has=V.capT&&V.capT.length, box=$("vcapT"); box.hidden=!has; $("vcapTbar").hidden=!has; $("vcapManual").hidden=!!has; if (!has) return;
