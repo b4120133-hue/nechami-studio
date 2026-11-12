@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700;800&family=Rubik:wght@800&family=Frank+Ruhl+Libre:wght@700&family=Secular+One&family=Amatic+SC:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700;800&family=Rubik:wght@800;900&family=Frank+Ruhl+Libre:wght@700&family=Secular+One&family=Amatic+SC:wght@700&display=swap">
 <style>
 /* Layout: one-column phone tool — section picker, form, live 9:16 poster preview; two columns on wide screens. Deliberately single dark purple-and-gold look, matching the logo. */
 :root{
@@ -172,7 +172,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 34</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 35</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -460,6 +460,9 @@ input[type=range]{width:100%;accent-color:var(--gold)}
           </div>
         </div>
         <div id="vopts" style="display:flex;flex-direction:column;gap:14px"></div>
+        <div class="audio-row"><span class="hint" id="fontName">אפשר להעלות פונט משלך (קובץ TTF או OTF), והוא יופיע ב"הפונט שלי".</span>
+          <label class="btn btn-ghost btn-small" for="fontFile">העלאת פונט</label>
+          <input class="hidden-input" type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf,application/octet-stream"></div>
         <div class="opt-group">
           <span class="label">תוספות (לא חובה)</span>
           <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vTick2" type="button" aria-pressed="false">באנר רץ למעלה</button><button class="chip" id="vTick" type="button" aria-pressed="false">באנר רץ למטה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
@@ -1145,14 +1148,14 @@ const VSTYLES={
 };
 const VORDER=["promo","chizuk","morning","night","nechamit","recipes","general"];
 const CAPOPTS={
-  font:{label:"סוג הכתב", opts:Object.entries({assistant:"רגיל",rubik:"עגול",suez:"מסורתי",frank:"ספר",secular:"כותרת",amatic:"כתב יד"})},
+  font:{label:"סוג הכתב", opts:Object.entries({heavy:"שמן ובולט",assistant:"רגיל",rubik:"עגול",suez:"מסורתי",frank:"ספר",secular:"כותרת",amatic:"כתב יד",custom:"הפונט שלי"})},
   pos:{label:"מיקום הכיתוב", opts:[["top","למעלה"],["middle","באמצע"],["bottom","למטה"]]},
   size:{label:"גודל האותיות", opts:[["s","קטנות"],["m","בינוניות"],["l","גדולות"],["xl","ענקיות"]]},
   color:{label:"צבע האותיות", opts:[["white","לבן"],["yellow","צהוב"],["gold","זהב"],["red","אדום"],["black","שחור"],["purple","סגול"]]},
   box:{label:"רקע לכיתוב", opts:[["shadow","קו מתאר"],["dark","פס כהה"],["light","פס בהיר"],["none","בלי"]]},
   mode:{label:"איך להציג את הכיתוב", opts:[["lines","משפט אחרי משפט"],["all","כל הטקסט ביחד"]]}
 };
-const VFONTS={assistant:["800","Assistant",1,"רגיל"],rubik:["800","Rubik",1,"עגול"],suez:["400","Suez One",1,"מסורתי"],frank:["700","Frank Ruhl Libre",1,"ספר"],secular:["400","Secular One",1,"כותרת"],amatic:["700","Amatic SC",1.3,"כתב יד"]};
+const VFONTS={heavy:["900","Rubik",1.04,"שמן ובולט"],custom:["400","NechamiCustom",1,"הפונט שלי"],assistant:["800","Assistant",1,"רגיל"],rubik:["800","Rubik",1,"עגול"],suez:["400","Suez One",1,"מסורתי"],frank:["700","Frank Ruhl Libre",1,"ספר"],secular:["400","Secular One",1,"כותרת"],amatic:["700","Amatic SC",1.3,"כתב יד"]};
 function capFont(sz){ const f=VFONTS[V.font]||VFONTS.assistant; return `${f[0]} ${Math.round(sz*f[2])}px "${f[1]}", Assistant, Arial, sans-serif`; }
 const VFX=[["auto","אוטומטי"],["dissolve","דיזולב"],["zin","זום פנימה"],["zout","זום החוצה"],["right","הזזה ימינה"],["left","הזזה שמאלה"],["rotate","סיבוב"],["static","בלי תנועה"]];
 const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classical","רגועה קלאסית"],["upbeat","קצבית"],["festive","חגיגית"],["own","שיר שלי"]];
@@ -2140,6 +2143,14 @@ function duckAutomate(gp,t0,T,full,zones,fadeIn){
     const tc=t0+b; gp.setValueAtTime(low,tc); if (b<T-1){ gp.linearRampToValueAtTime(full,tc+R); cur=full; tPrev=tc+R; } else tPrev=tc; });
   if (fadeIn){ const tf=t0+Math.max(T-1.8,(tPrev-t0)+.05); gp.setValueAtTime(cur,tf); gp.linearRampToValueAtTime(0,t0+T); }
 }
+/* ----- custom font (saved on this phone) ----- */
+let customFontName="";
+async function useFontData(buf,name){ const ff=new FontFace("NechamiCustom",buf); await ff.load(); document.fonts.add(ff); customFontName=name||"הפונט שלי"; $("fontName").textContent="הפונט שלך: "+customFontName+". בחרי למעלה “הפונט שלי”."; TICK.bottom=null; TICK.top=null; }
+$("fontFile").addEventListener("change",async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if (!f) return;
+  try{ const buf=await f.arrayBuffer(); await useFontData(buf,f.name.replace(/\.[^.]+$/,"")); V.font="custom"; vBuild(); vPreview();
+    try{ await tx("blobs","readwrite",s=>s.put({buf,name:customFontName},"__font__")); }catch(err){} $("vstatus").textContent="הפונט נוסף ונשמר בטלפון.";
+  }catch(err){ $("vstatus").textContent="הקובץ הזה לא נפתח כפונט. צריך קובץ TTF או OTF."; } });
+setTimeout(async()=>{ try{ const r=await tx("blobs","readonly",s=>s.get("__font__")); if (r&&r.buf){ await useFontData(r.buf,r.name); vPreview(); } }catch(e){} },300);
 $("vduck").onclick=()=>{ V.duck=!V.duck; vBuild(); };
 $("vduckLow").addEventListener("input",e=>{ V.duckLow=e.target.value/100; $("vduckLowTxt").textContent=e.target.value+"%"; });
 $("vduckLow").addEventListener("change",()=>{ vBuild(); vPreview(); });
