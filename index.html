@@ -177,7 +177,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 36</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 37</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1291,7 +1291,7 @@ function vPrep(){
   vOverC=document.createElement("canvas"); vOverC.width=VW; vOverC.height=VH; c=vOverC.getContext("2d");
   c.drawImage(vFrameC,0,0); c.direction="rtl"; c.textBaseline="middle";
   const lh=140, lw=lh*logo.width/logo.height, lx=VW-26-lw;
-  if (V.cornerLogo){ c.save(); c.shadowColor="rgba(0,0,0,.55)"; c.shadowBlur=16; c.shadowOffsetY=6; c.drawImage(logo,lx,V.tick2?24+TH+8:24,lw,lh); c.restore(); }
+  
   if (!V.showName) return;
   const rx0=34, rx1=lx-14, ry=58+(V.tick2?TH+8:0), rh=74;
   c.save(); c.shadowColor="rgba(0,0,0,.5)"; c.shadowBlur=14; c.shadowOffsetY=6; c.fillStyle=goldGrad(c,rx0,ry,rx1,ry+rh); rr(c,rx0,ry,rx1-rx0,rh,rh/2); c.fill(); c.restore();
@@ -1419,6 +1419,8 @@ function vChunks(){
 /* ----- movable / resizable overlays ----- */
 const OVB=[]; let ovRec=false, vLastT=.9;
 function ovOf(key,obj){ if (obj) return obj.ov||{dx:0,dy:0,s:1}; return (V.ov&&V.ov[key])||{dx:0,dy:0,s:1}; }
+function vCornerLogo(c){ if (!V.cornerLogo||!logo.width) return; const lh=140, lw=lh*logo.width/logo.height, lx=VW-26-lw, ly=V.tick2?24+TH+8:24;
+  c.save(); ovApply(c,"logo",null,{x:lx,y:ly,w:lw,h:lh},"הלוגו"); c.shadowColor="rgba(0,0,0,.55)"; c.shadowBlur=16; c.shadowOffsetY=6; c.drawImage(logo,lx,ly,lw,lh); c.restore(); }
 function ovApply(ctx,key,obj,box,label){ const o=ovOf(key,obj), cx=box.x+box.w/2, cy=box.y+box.h/2;
   ctx.translate(cx+o.dx,cy+o.dy); ctx.scale(o.s,o.s); ctx.translate(-cx,-cy);
   if (ovRec) OVB.push({key,obj,label,cx,cy,x:cx+o.dx-box.w*o.s/2,y:cy+o.dy-box.h*o.s/2,w:box.w*o.s,h:box.h*o.s}); }
@@ -1555,7 +1557,7 @@ function vFrame(ctx,t,chunks){
   const S=VSTYLES[V.style], T=vTotal(), main=T-OUTRO;
   ctx.drawImage(vBgC,0,0);
   if (t>=main){ vOutro(ctx,(t-main)/OUTRO,t); vFx(ctx,t,S); ctx.drawImage(vFrameC,0,0); }
-  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.tick2) drawTicker2(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
+  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vCornerLogo(ctx); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.tick2) drawTicker2(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
       const ly=V.linkPos==="top"?(V.cornerLogo?230:120)+(V.tick2?TH+8:0):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74);
       ctx.save(); ctx.globalAlpha=Math.max(0,a); ctx.font=`40px "Suez One", serif`; { const lw=ctx.measureText("כנסו לקישור").width+40*1.1*2.6+40, lh=62; ovApply(ctx,"link",null,{x:VW/2-lw/2,y:ly-lh/2,w:lw,h:lh},"כנסו לקישור"); }
       drawLinkBadge(ctx,VW/2,ly,40,t); ctx.restore(); }
