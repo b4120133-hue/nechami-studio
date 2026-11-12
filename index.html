@@ -103,6 +103,7 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 .tl-row{position:relative;height:40px;margin-top:6px;border-radius:6px;background:rgba(255,255,255,.03)}
 .tl-rlab{position:absolute;top:2px;left:4px;font:700 10px var(--body);color:var(--muted);pointer-events:none}
 .tlr{position:absolute;top:3px;height:34px;border-radius:7px;overflow:hidden;cursor:grab;touch-action:none;border:2px solid transparent}
+.tl-row.voice .tlr{background:rgba(80,160,230,.25)!important;border-color:rgba(150,205,255,.7)!important}
 .tl-row.snd .tlr{background:rgba(255,170,60,.22);border-color:rgba(255,190,100,.6)}
 .tl-row.txt .tlr{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.55)}
 .tlr.sel{border-color:var(--gold-hi)!important;box-shadow:0 0 0 2px var(--gold-hi)}
@@ -171,7 +172,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 30</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 31</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -414,7 +415,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
             <input class="hidden-input" type="file" id="vrec" accept="audio/*" capture>
             <input class="hidden-input" type="file" id="vvoice" accept="audio/*">
           </div>
-          <p class="note">אפשר להקליט כמה פעמים. כל הקלטה נשמרת כאן בצד: שומעים, חותכים, משנים מהירות, ובוחרים איזו נכנסת לסרטון.</p>
+          <p class="note">אפשר להקליט כמה פעמים. כל הקלטה נשמרת כאן בצד: שומעים, חותכים, משנים מהירות, ובוחרים איזו נכנסת לסרטון. רוצה כמה הקלטות ביחד? לוחצים "➕ להוסיף לסרגל" על כל הקלטה, והן נכנסות אחת אחרי השנייה. בסרגל אפשר לגרור כל אחת למקום שלה.</p>
           <div id="vtakes" class="takes"></div>
         </div>
         <div class="opt-group">
@@ -1532,7 +1533,7 @@ const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
-  o.sounds=V.sounds.map(sd=>{ if (!sd.id) sd.id=++HIST.seq; HIST.reg.set(sd.id,sd); return [sd.id,sd.at,sd.in,sd.out,sd.vol]; });
+  o.sounds=V.sounds.map(sd=>{ if (!sd.id) sd.id=++HIST.seq; HIST.reg.set(sd.id,sd); return [sd.id,sd.at,sd.in,sd.out,sd.vol,sd.rate||1]; });
   o.items=V.imgs.map(m=>{ if (!m.id){ m.id=++HIST.seq; } HIST.reg.set(m.id,m); return [m.id,m.fx||"auto",m.d,m.in,m.out,m.vol,!!m.mute,m.rate||1,m.cz||1,m.cx||0,m.cy||0]; });
   return JSON.stringify(o);
 }
@@ -1544,7 +1545,7 @@ function histCommit(){ if (HIST.lock) return;
 function histRestore(str){
   const o=JSON.parse(str); HIST.lock=true;
   SNAP_KEYS.forEach(k=>V[k]=o[k]); setOutro(); $("vLinkEndTxt").value=V.linkEndTxt||"";
-  V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol}); return sd; }); V.rsel=null;
+  V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol,rate])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol,rate:rate||1}); return sd; }); V.rsel=null;
   V.imgs=o.items.map(([id,fx,d,i,out,vol,mute,rate,cz,cx,cy])=>{ const m=HIST.reg.get(id); m.fx=fx; m.rate=rate||1; m.cz=cz||1; m.cx=cx||0; m.cy=cy||0; if (d!=null) m.d=d; if (i!=null){ m.in=i; m.out=out; } if (vol!=null) m.vol=vol; m.mute=mute; return m; });
   V.sel=-1; $("vtitle").value=V.title; $("vcap").value=V.cap; $("vend").value=V.end; $("vvol").value=Math.round(V.vol*100);
   vPrep(); vBuild(); vPreview(); HIST.lock=false; histButtons();
@@ -1587,7 +1588,7 @@ function tlBuild(){
     if (m.kind==="vid"){ const hs=document.createElement("i"); hs.className="tlh tlh-start"; hs.setAttribute("aria-label","ידית התחלה"); b.appendChild(hs); }
     track.appendChild(b); acc+=L; });
   const vtk0=voiceTake();
-  const extEnd=Math.max(acc, vtk0?V.voiceAt+takeLen(vtk0):0, ...V.sounds.map(sd=>sd.at+(sd.out-sd.in)), ...V.texts.map(x=>x.at+x.d));
+  const extEnd=Math.max(acc, vtk0?V.voiceAt+takeLen(vtk0):0, ...V.sounds.map(sd=>sd.at+((sd.out-sd.in)/(sd.rate||1))), ...V.texts.map(x=>x.at+x.d));
   const width=Math.max(extEnd*pps+60, 0);
   inner.style.width=width+"px"; ruler.innerHTML="";
   const tk=voiceTake(), lane=$("tlVoice"); lane.hidden=!tk;
@@ -1604,10 +1605,10 @@ function tlBuild(){
 function rowsBuild(pps){
   const rows=$("tlRows"); rows.innerHTML="";
   const mkRow=(label,cls)=>{ const r=document.createElement("div"); r.className="tl-row "+cls; const l=document.createElement("span"); l.className="tl-rlab"; l.textContent=label; r.appendChild(l); rows.appendChild(r); return r; };
-  V.sounds.forEach((sd,i)=>{ const r=mkRow("סאונד "+(i+1),"snd"), L=sd.out-sd.in, w=Math.max(28,L*pps);
+  V.sounds.forEach((sd,i)=>{ const r=mkRow(sd.voice?sd.name:"סאונד "+(i+1),"snd"+(sd.voice?" voice":"")), L=((sd.out-sd.in)/(sd.rate||1)), w=Math.max(28,L*pps);
     const b=document.createElement("div"); b.className="tlr"+(V.rsel&&V.rsel.kind==="snd"&&V.rsel.i===i?" sel":""); b.dataset.k="snd"; b.dataset.i=i; b.style.right=(sd.at*pps)+"px"; b.style.width=w+"px";
     const cv=document.createElement("canvas"); cv.width=Math.max(10,Math.round(w)); cv.height=30; const c=cv.getContext("2d"); c.fillStyle="#ffd28a";
-    const n=sd.peaks.length; for (let k=0;k<n;k++){ const s=k/n*sd.dur; if (s<sd.in||s>sd.out) continue; const x=w-(s-sd.in)*pps, ph=Math.max(1,sd.peaks[k]*26); c.fillRect(x-2,(30-ph)/2,2,ph); }
+    const n=sd.peaks.length; for (let k=0;k<n;k++){ const s=k/n*sd.dur; if (s<sd.in||s>sd.out) continue; const x=w-(s-sd.in)/(sd.rate||1)*pps, ph=Math.max(1,sd.peaks[k]*26); c.fillRect(x-2,(30-ph)/2,2,ph); }
     const nm=document.createElement("em"); nm.textContent=sd.name+(sd.vol===0?" · שקט":"");
     const he=document.createElement("i"); he.className="tlh tlh-end";
     b.append(cv,nm,he); r.appendChild(b); });
@@ -1622,7 +1623,7 @@ function rowPanel(){
   const o=sel?(sel.kind==="snd"?V.sounds[sel.i]:V.texts[sel.i]):null;
   if (!o){ V.rsel=null; box.hidden=true; return; }
   box.hidden=false; const isS=sel.kind==="snd";
-  $("vrowTitle").textContent=(isS?"סאונד ":"טקסט ")+(sel.i+1);
+  $("vrowTitle").textContent=isS?(o.voice?o.name:"סאונד "+(sel.i+1)):"טקסט "+(sel.i+1);
   $("vrowTxt").hidden=isS; $("vrowSnd").hidden=!isS; $("rDurRow").hidden=isS;
   const M=Math.max(1,vSum()); $("rAt").max=M.toFixed(1); $("rAt").value=o.at; $("rAtTxt").textContent=fmtS(o.at)+" שניות";
   if (isS){ $("rsVol").value=Math.round(o.vol*100); $("rsVolTxt").textContent=Math.round(o.vol*100)+"%";
@@ -1674,7 +1675,7 @@ $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("cha
   window.addEventListener("pointermove",e=>{ if (!D||e.pointerId!==D.id) return; const dt=-(e.clientX-D.x0)/TL.pps;
     if (D.type==="tap" && Math.abs(e.clientX-D.x0)>8) D.type="move";
     if (D.type==="move") D.o.at=Math.max(0,Math.round((D.at0+dt)*10)/10);
-    else if (D.type==="end"){ if (D.kind==="txt") D.o.d=Math.max(.5,Math.round((D.d0+dt)*10)/10); else if (D.kind==="snd") D.o.out=Math.max(D.o.in+.3,Math.min(D.o.dur,D.out0+dt)); }
+    else if (D.type==="end"){ if (D.kind==="txt") D.o.d=Math.max(.5,Math.round((D.d0+dt)*10)/10); else if (D.kind==="snd") D.o.out=Math.max(D.o.in+.3,Math.min(D.o.dur,D.out0+dt*(D.o.rate||1))); }
     else return; soon(); });
   const up=e=>{ if (!D||e.pointerId!==D.id) return; const d=D; D=null;
     if (d.type==="tap" && d.kind!=="voice"){ const same=V.rsel&&V.rsel.kind===d.kind&&V.rsel.i===d.i; V.rsel=same?null:{kind:d.kind,i:d.i}; if (!same) setTimeout(()=>$("vrow").scrollIntoView({block:"nearest",behavior:"smooth"}),60); }
@@ -1888,6 +1889,7 @@ $("vtrans").onclick=async()=>{
   if (trBusy) return; const st=$("vtransNote");
   const jobs=[]; const tk=voiceTake();
   if (tk) jobs.push({get:async()=>to16k(tk.buf,tk.in,tk.out),map:ts=>V.voiceAt+ts/tk.rate,end:V.voiceAt+takeLen(tk)});
+  V.sounds.forEach(sd=>{ if (!sd.voice||!sd.buf||sd.vol===0) return; const r=sd.rate||1; jobs.push({get:async()=>to16k(sd.buf,sd.in,sd.out),map:ts=>sd.at+ts/r,end:sd.at+(sd.out-sd.in)/r}); });
   vTimeline().forEach(it=>{ const m=it.m; if (m.kind!=="vid"||m.mute||m.vol===0||!m.blob) return;
     jobs.push({get:async()=>{ if (!m.abuf){ const ab=await m.blob.arrayBuffer(); m.abuf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); } return to16k(m.abuf,m.in,m.out); },map:ts=>it.start+ts/(m.rate||1),end:it.start+it.dur}); });
   if (!jobs.length){ st.textContent="אין דיבור לתמלל: צריך הקלטה (שלב 2) או סרטון עם קול."; return; }
@@ -2047,7 +2049,9 @@ function takesBuild(){
     use.onclick=()=>{ if (i===V.voiceIdx) V.voiceIdx=-1; else { V.voiceIdx=i; fitTo(Math.min(600,takeLen(t)+OUTRO+.6)); } vBuild(); vPreview(); };
     const del=document.createElement("button"); del.type="button"; del.className="btn btn-ghost btn-small"; del.textContent="מחיקה";
     del.onclick=()=>{ if (takePlaying===t) stopTakePreview(); V.takes.splice(i,1); if (V.voiceIdx===i) V.voiceIdx=-1; else if (V.voiceIdx>i) V.voiceIdx--; vBuild(); vPreview(); };
-    ctr.append(pb,use,del);
+    const add=document.createElement("button"); add.type="button"; add.className="btn btn-ghost btn-small"; add.textContent="➕ להוסיף לסרגל כעוד הקלטה";
+    add.onclick=()=>takeToTimeline(t);
+    ctr.append(pb,use,add,del);
     const mk=(label,val,max,on)=>{ const l=document.createElement("label"); l.className="note"; l.textContent=label+": "; const bb=document.createElement("b"); bb.textContent=fmtT(val); l.appendChild(bb);
       const r=document.createElement("input"); r.type="range"; r.min=0; r.max=t.dur.toFixed(1); r.step=.1; r.value=val; r.setAttribute("aria-label",label);
       r.addEventListener("input",()=>{ on(+r.value); bb.textContent=fmtT(+r.value===t.in||label.includes("התח")?t.in:t.out); len.textContent=`${takeLen(t).toFixed(1)} שניות`; drawWave(cv,t,null); });
@@ -2071,6 +2075,16 @@ function takesBuild(){
     card.append(head,cv,ctr,l1,r1,l2,r2,sp); box.appendChild(card);
     requestAnimationFrame(()=>drawWave(cv,t,takePlaying===t?t.el.currentTime:null));
   });
+}
+function voiceEnd(){ const tk=voiceTake(); let e=tk?V.voiceAt+takeLen(tk):0; V.sounds.forEach(sd=>{ if (sd.voice) e=Math.max(e,sd.at+(sd.out-sd.in)/(sd.rate||1)); }); return e; }
+function takeToTimeline(t){
+  const el=new Audio(t.url); el.preload="auto"; el.preservesPitch=true;
+  const n=V.sounds.filter(x=>x.voice).length+(voiceTake()?2:1);
+  const sd={url:t.url,el,buf:t.buf,blob:t.blob,dur:t.dur,in:t.in,out:t.out,rate:t.rate||1,at:Math.round(voiceEnd()*10)/10,vol:1,peaks:t.peaks,name:"הקלטה "+n,voice:true};
+  V.sounds.push(sd); V.rsel={kind:"snd",i:V.sounds.length-1};
+  const need=sd.at+(sd.out-sd.in)/sd.rate, have=vSum();
+  $("vstatus").textContent=`ההקלטה נוספה לסרגל, מיד אחרי ההקלטה הקודמת (בשנייה ${sd.at.toFixed(1)}). אפשר לגרור אותה למקום אחר בשלב 4.`+(need>have+.5?` היא ממשיכה אחרי סוף התמונות: כדאי להוסיף או להאריך תמונות.`:"");
+  vBuild(); vPreview();
 }
 async function addTake(f,o){ o=o||{};
   try{ const buf=await loadAudio(f), url=URL.createObjectURL(f), el=new Audio(url); el.preload="auto"; el.preservesPitch=true;
@@ -2122,7 +2136,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   const tracks=record?[...vcan.captureStream(30).getVideoTracks()]:[]; let t0a=0; const srcs=[];
   if (ac){ const dest=record?ac.createMediaStreamDestination():null; t0a=ac.currentTime+.2;
     const route=n=>{ if(dest) n.connect(dest); n.connect(ac.destination); };
-    if (music){ const s=ac.createBufferSource(), g=ac.createGain(), lvl=V.vol*(voiceTake()?.3:1); s.buffer=music; s.loop=true;
+    if (music){ const s=ac.createBufferSource(), g=ac.createGain(), lvl=V.vol*((voiceTake()||V.sounds.some(x=>x.voice))?.3:1); s.buffer=music; s.loop=true;
       g.gain.setValueAtTime(0,t0a); g.gain.linearRampToValueAtTime(lvl,t0a+.8); g.gain.setValueAtTime(lvl,t0a+Math.max(.9,T-1.8)); g.gain.linearRampToValueAtTime(0,t0a+T);
       s.connect(g); route(g); s.start(t0a); s.stop(t0a+T+.2); srcs.push(s); }
     stopSndPrev(); V.sounds.forEach(sd=>{ takeNode(sd); if (sd.gain){ sd.gain.gain.value=silent?0:sd.vol; if (dest) sd.gain.connect(dest); } });
@@ -2149,7 +2163,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   if (rec) rec.start(250);
   const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000);
     vFrame(vctx,Math.min(t,T-.001),chunks); $("vbarFill").style.width=Math.min(100,t/T*100)+"%";
-    V.sounds.forEach(sd=>{ const want=sd.in+(t-sd.at);
+    V.sounds.forEach(sd=>{ const want=sd.in+(t-sd.at)*(sd.rate||1); if (sd.el.playbackRate!==(sd.rate||1)){ sd.el.playbackRate=sd.rate||1; sd.el.preservesPitch=true; }
       if (t>=sd.at && want<sd.out-.02 && t<T && !vStopFlag){ if (sd.el.paused){ try{ sd.el.currentTime=want; }catch(e){} sd.el.play().catch(()=>{}); } else if (Math.abs(sd.el.currentTime-want)>.3){ try{ sd.el.currentTime=want; }catch(e){} } }
       else if (!sd.el.paused) sd.el.pause(); });
     { const tk=silent?null:voiceTake(); if (tk){ const want=tk.in+(t-V.voiceAt)*tk.rate;
@@ -2305,7 +2319,7 @@ function tx(store,mode,fn){ return idb().then(d=>new Promise((res,rej)=>{ const 
 function blobOf(o){ if (!o.bid) o.bid=uid(); return o.blob; }
 function projState(){
   const cur=snap(), pool=[]; HIST.reg.forEach((o,id)=>{ if (!o.blob) return; blobOf(o);
-    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol}); });
+    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}); });
   const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate}; });
   if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid(); if (V.tick2Blob && !V.tick2Bid){ V.tick2Bid=uid(); }
   return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step, tick2Bid:V.tick2Blob?V.tick2Bid:null};
@@ -2368,7 +2382,7 @@ async function projOpen(id){
   try{
     vReset(); const S=JSON.parse(p.state); const getB=bid=>tx("blobs","readonly",s=>s.get(id+":"+bid));
     for (const o of S.pool){ const b=await getB(o.bid); if (!b) continue; let m;
-      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol}; }
+      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,buf,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}; }
       else if (o.kind==="vid"){ m=await loadClip(b); Object.assign(m,{fx:o.fx,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate||1,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       else { m=await imgItem(b); Object.assign(m,{fx:o.fx,d:o.d,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       m.id=o.id; m.bid=o.bid; m.blob=b; HIST.reg.set(o.id,m); }
