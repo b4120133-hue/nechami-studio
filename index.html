@@ -96,6 +96,11 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 #videoView.recmode .previewCol{order:-1}
 #out.cropping{touch-action:none;cursor:move}
 #adPoster{touch-action:pan-y}
+#vcan{touch-action:none}
+.gline{position:absolute;z-index:4;pointer-events:none;background:#ff4fd8;box-shadow:0 0 6px #ff4fd8}
+.gline.gv{top:0;bottom:0;left:50%;width:2px;transform:translateX(-1px)}
+.gline.gh{left:0;right:0;top:50%;height:2px;transform:translateY(-1px)}
+.ovbox{position:absolute;z-index:3;pointer-events:none;border:2px dashed var(--gold-hi);border-radius:8px;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .croptip{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:3;background:rgba(10,2,18,.82);color:var(--gold-hi);border:1px solid var(--gold);border-radius:999px;padding:5px 12px;font:700 13px var(--body);white-space:nowrap;pointer-events:none}
 #vcan.cropping{touch-action:none;cursor:move}
 #videoView.recmode .poster{box-shadow:0 0 0 3px #ff4d4d,0 20px 50px rgba(0,0,0,.55)}
@@ -172,7 +177,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 35</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 36</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -533,7 +538,13 @@ input[type=range]{width:100%;accent-color:var(--gold)}
       </div>
     </section>
     <section class="previewCol" aria-label="תצוגה מקדימה של הסרטון">
-      <div class="poster" id="vposter"><div class="croptip" id="croptip" hidden></div><canvas id="vcan" width="720" height="1280"></canvas><video id="vout" controls playsinline hidden></video></div>
+      <div class="poster" id="vposter"><div class="croptip" id="croptip" hidden></div><div class="gline gv" id="gV" hidden></div><div class="gline gh" id="gH" hidden></div><div class="ovbox" id="ovBox" hidden></div><canvas id="vcan" width="720" height="1280"></canvas><video id="vout" controls playsinline hidden></video></div>
+      <p class="note" id="ovHint" style="text-align:center">💡 על התצוגה: <b>גוררים</b> כיתוב, טקסט, באנר או סמל למקום אחר, ו<b>שתי אצבעות</b> מגדילות או מקטינות. באמצע המסך יש מגנט.</p>
+      <div class="itemPanel" id="ovPanel" hidden>
+        <div class="row" style="justify-content:space-between"><span class="label" id="ovTitle" style="margin:0"></span><button class="btn btn-ghost btn-small" id="ovClose" type="button">סגירה</button></div>
+        <div class="row"><span class="note">קטן</span><input type="range" id="ovS" min="-170" max="200" step="1" value="0" style="flex:1;min-width:120px" aria-label="גודל"><span class="note">גדול</span></div>
+        <div class="row" style="justify-content:space-between"><b id="ovSTxt">100%</b><span class="row" style="gap:6px"><button class="btn btn-ghost btn-small" id="ovCenter" type="button">למרכז</button><button class="btn btn-ghost btn-small" id="ovReset" type="button">איפוס</button></span></div>
+      </div>
       <div class="bar" id="vbar" hidden><i id="vbarFill"></i></div>
       <div class="row" style="justify-content:center">
         <button class="btn btn-ghost btn-small" id="vundo" type="button" disabled>↶ ביטול שינוי</button>
@@ -1162,7 +1173,7 @@ const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classic
 const VCOLORS={white:"#ffffff",yellow:"#ffe14d",gold:"#f3cf6b",red:"#ff3838",black:"#111111",purple:"#5a1f8f"};
 const VSIZES={s:40,m:54,l:70,xl:92};
 const V={style:"morning", imgs:[], title:"", cap:"", track:0, showName:false,
-  duck:true, duckGap:3, duckLow:.2, deco:false, outro:false, cornerLogo:true, link:false, capT:[], tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
+  ov:{}, duck:true, duckGap:3, duckLow:.2, deco:false, outro:false, cornerLogo:true, link:false, capT:[], tick2:false, tick2Txt:"", tick2Logo:true, tick2Speed:1, tick2Img:null, tick2Blob:null, tick2Bid:null, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
   musicKind:"quiet", ownMusic:null, musicName:"", vol:.6, ownMusicBlob:null, ownMusicBid:null, takes:[], voiceIdx:-1, voiceAt:.3, sounds:[], texts:[], rsel:null};
 let actx=null;
 function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
@@ -1405,6 +1416,13 @@ function vChunks(){
   const main=vTotal()-OUTRO, tot=parts.reduce((a,p)=>a+p.length+14,0); let acc=0;
   return parts.map(p=>{ const d=main*(p.length+14)/tot, o={text:p,start:acc,end:acc+d}; acc+=d; return o; });
 }
+/* ----- movable / resizable overlays ----- */
+const OVB=[]; let ovRec=false, vLastT=.9;
+function ovOf(key,obj){ if (obj) return obj.ov||{dx:0,dy:0,s:1}; return (V.ov&&V.ov[key])||{dx:0,dy:0,s:1}; }
+function ovApply(ctx,key,obj,box,label){ const o=ovOf(key,obj), cx=box.x+box.w/2, cy=box.y+box.h/2;
+  ctx.translate(cx+o.dx,cy+o.dy); ctx.scale(o.s,o.s); ctx.translate(-cx,-cy);
+  if (ovRec) OVB.push({key,obj,label,cx,cy,x:cx+o.dx-box.w*o.s/2,y:cy+o.dy-box.h*o.s/2,w:box.w*o.s,h:box.h*o.s}); }
+function vDrawPreview(t){ OVB.length=0; ovRec=true; try{ vFrame(vctx,t,vChunks()); }finally{ ovRec=false; } vLastT=t; ovSelBox(); }
 function vCaps(ctx,tm,chunks){
   const ch=chunks.find(c=>tm>=c.start && tm<c.end); if (!ch) return;
   const last=ch===chunks[chunks.length-1];
@@ -1418,6 +1436,7 @@ function vCaps(ctx,tm,chunks){
   const bh=lines.length*lh, rise=(1-a)*18;
   const cy=V.pos==="top"?250+(V.tick2?TH+8:0)+bh/2:V.pos==="middle"?VH/2:VH-170-bh/2;
   const y0=cy-bh/2+lh/2+rise;
+  { const bwB=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60); ovApply(ctx,"cap",null,{x:VW/2-bwB/2,y:cy-bh/2-18,w:bwB,h:bh+36},"הכיתוב"); }
   if (V.box==="dark"||V.box==="light"){
     const bw=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60);
     ctx.fillStyle=V.box==="dark"?"rgba(10,4,18,.66)":"rgba(255,255,255,.88)";
@@ -1436,6 +1455,7 @@ function drawOverlayText(ctx,text,o,a){
   ctx.font=`${f[0]} ${Math.round(sz*f[2])}px "${f[1]}", Assistant, Arial, sans-serif`;
   let lines=wrapLines(ctx,text,VW-130); const lh=sz*1.25, maxL=Math.max(1,Math.floor(560/lh)); if (lines.length>maxL) lines=lines.slice(0,maxL);
   const bh=lines.length*lh, cy=o.pos==="top"?(V.cornerLogo?250:140)+(V.tick2?TH+8:0)+bh/2:o.pos==="middle"?VH/2:VH-170-bh/2, y0=cy-bh/2+lh/2;
+  { const bw=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60); ovApply(ctx,"text",o,{x:VW/2-bw/2,y:cy-bh/2-18,w:bw,h:bh+36},"טקסט"); }
   if (o.box==="dark"||o.box==="light"){ const bw=Math.min(VW-50,Math.max(...lines.map(l=>ctx.measureText(l).width))+60);
     ctx.fillStyle=o.box==="dark"?"rgba(10,4,18,.66)":"rgba(255,255,255,.88)"; rr(ctx,VW/2-bw/2,cy-bh/2-18,bw,bh+36,22); ctx.fill();
     ctx.strokeStyle="rgba(233,196,106,.7)"; ctx.lineWidth=2; rr(ctx,VW/2-bw/2,cy-bh/2-18,bw,bh+36,22); ctx.stroke(); }
@@ -1454,6 +1474,7 @@ function vTitle(ctx,tm){
   ctx.save(); ctx.globalAlpha=a; ctx.direction="rtl"; ctx.textAlign="center"; ctx.textBaseline="middle";
   const t=fit(ctx,title,`{s}px "Suez One", serif`,VW-120,200,66,36,1.2,2); ctx.font=`${t.size}px "Suez One", serif`;
   const bh=t.lines.length*t.size*1.2, cy=V.pos==="top"?VH/2:330;
+  { const bw=Math.max(...t.lines.map(l=>ctx.measureText(l).width))+40; ovApply(ctx,"title",null,{x:VW/2-bw/2,y:cy-bh/2-20,w:bw,h:bh+40},"הכותרת"); }
   const g=ctx.createLinearGradient(0,cy-bh/2-40,0,cy+bh/2+40); g.addColorStop(0,"rgba(8,2,14,0)"); g.addColorStop(.5,"rgba(8,2,14,.55)"); g.addColorStop(1,"rgba(8,2,14,0)");
   ctx.fillStyle=g; ctx.fillRect(0,cy-bh/2-40,VW,bh+80);
   t.lines.forEach((ln,i)=>{ const y=cy-bh/2+t.size*.6+i*t.size*1.2+(1-a)*14; ctx.fillStyle="rgba(0,0,0,.6)"; ctx.fillText(ln,VW/2,y+3); ctx.fillStyle=goldGrad(ctx,VW/2-260,0,VW/2+260,0); ctx.fillText(ln,VW/2,y); });
@@ -1497,10 +1518,10 @@ function drawBar(ctx,t,y,style,strip,speed){
   const off=((t*90*(speed||1))%W+W)%W; ctx.drawImage(strip,off-W,y); ctx.drawImage(strip,off,y);
   ctx.restore();
 }
-function drawTicker(ctx,t){ if (!(V.tickTxt||"").trim()) return; drawBar(ctx,t,TY,"bottom",buildStrip(V.tickTxt,"bottom",[]),V.tickSpeed); }
+function drawTicker(ctx,t){ if (!(V.tickTxt||"").trim()) return; ctx.save(); ovApply(ctx,"tick",null,{x:14,y:TY,w:VW-28,h:TH},"הבאנר התחתון"); drawBar(ctx,t,TY,"bottom",buildStrip(V.tickTxt,"bottom",[]),V.tickSpeed); ctx.restore(); }
 function drawTicker2(ctx,t){
   const imgs=[]; if (V.tick2Logo) imgs.push({id:"logo",c:logo}); if (V.tick2Img) imgs.push({id:"img"+(V.tick2Bid||"x"),c:V.tick2Img});
-  if (!(V.tick2Txt||"").trim() && !imgs.length) return; drawBar(ctx,t,TY2,"top",buildStrip(V.tick2Txt,"top",imgs),V.tick2Speed);
+  if (!(V.tick2Txt||"").trim() && !imgs.length) return; ctx.save(); ovApply(ctx,"tick2",null,{x:14,y:TY2,w:VW-28,h:TH},"הבאנר העליון"); drawBar(ctx,t,TY2,"top",buildStrip(V.tick2Txt,"top",imgs),V.tick2Speed); ctx.restore();
 }
 function vLinkPage(ctx,p,t){
   const a=ease(p*2.5), cy=VH/2-60;
@@ -1535,7 +1556,10 @@ function vFrame(ctx,t,chunks){
   ctx.drawImage(vBgC,0,0);
   if (t>=main){ vOutro(ctx,(t-main)/OUTRO,t); vFx(ctx,t,S); ctx.drawImage(vFrameC,0,0); }
   else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.tick2) drawTicker2(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
-      ctx.save(); ctx.globalAlpha=Math.max(0,a); drawLinkBadge(ctx,VW/2,V.linkPos==="top"?(V.cornerLogo?230:120)+(V.tick2?TH+8:0):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74),40,t); ctx.restore(); } if (V.spk) drawSpeaker(ctx,74,V.tick?TY-48:VH-78,40,t); }
+      const ly=V.linkPos==="top"?(V.cornerLogo?230:120)+(V.tick2?TH+8:0):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74);
+      ctx.save(); ctx.globalAlpha=Math.max(0,a); ctx.font=`40px "Suez One", serif`; { const lw=ctx.measureText("כנסו לקישור").width+40*1.1*2.6+40, lh=62; ovApply(ctx,"link",null,{x:VW/2-lw/2,y:ly-lh/2,w:lw,h:lh},"כנסו לקישור"); }
+      drawLinkBadge(ctx,VW/2,ly,40,t); ctx.restore(); }
+    if (V.spk){ const sy=V.tick?TY-48:VH-78; ctx.save(); ovApply(ctx,"spk",null,{x:34,y:sy-40,w:80,h:80},"הרמקול"); drawSpeaker(ctx,74,sy,40,t); ctx.restore(); } }
   let dip=0;
   if (OUTRO>0){ const d=Math.abs(t-main); if (d<.25) dip=1-d/.25; if (t>T-.4) dip=Math.max(dip,(t-(T-.4))/.4); }
   if (dip>0){ ctx.fillStyle=`rgba(8,2,14,${dip*.85})`; ctx.fillRect(0,0,VW,VH); }
@@ -1545,7 +1569,7 @@ function vPreviewAt(k){ const tl=vTimeline(); vpAt=tl[k]?tl[k].start+Math.min(1.
 let vpTimer=null;
 /* ----- undo / redo (up to 10 steps back) ----- */
 const HIST={list:[], idx:-1, lock:false, timer:null, reg:new Map(), seq:0};
-const SNAP_KEYS=["duck","duckGap","duckLow","voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","capT","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
+const SNAP_KEYS=["ov","duck","duckGap","duckLow","voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","capT","tick","tickTxt","tickSpeed","tick2","tick2Txt","tick2Logo","tick2Speed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
@@ -1580,7 +1604,7 @@ function vInvalidate(){
   vBlob=null; $("vstatus").textContent="עשית שינוי, אז הקובץ הקודם בוטל. כשמסיימים, בשלב 4 לוחצים ״יצירת הקובץ מחדש״.";
   vSteps();
 }
-function vPreview(){ vInvalidate(); histCommit(); projTouch(); clearTimeout(vpTimer); vpTimer=setTimeout(()=>{ if (vBusy||!fontsReady||!logo.naturalWidth) return; if(!vBgC) vPrep(); vFrame(vctx,vpAt!=null?vpAt:.9,vChunks()); vpAt=null; },120); }
+function vPreview(){ vInvalidate(); histCommit(); projTouch(); clearTimeout(vpTimer); vpTimer=setTimeout(()=>{ if (vBusy||!fontsReady||!logo.naturalWidth) return; if(!vBgC) vPrep(); vDrawPreview(vpAt!=null?vpAt:.9); vpAt=null; },120); }
 
 /* ----- UI ----- */
 function chipGroup(box,opts,isOn,onPick,swatch){
@@ -1708,7 +1732,7 @@ $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("cha
     vBuild(); vPreviewAt2(d.o.at+.2); };
   window.addEventListener("pointerup",up); window.addEventListener("pointercancel",up);
   $("tlRuler").addEventListener("click",e=>{ const r=inner.getBoundingClientRect(), t=Math.max(0,Math.min(vTotal()-.01,(r.right-e.clientX)/TL.pps)); TL.scrub=t;
-    const hd=$("tlHead"); hd.hidden=false; hd.style.right=(t*TL.pps)+"px"; if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vFrame(vctx,t,vChunks()); } });
+    const hd=$("tlHead"); hd.hidden=false; hd.style.right=(t*TL.pps)+"px"; if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vDrawPreview(t); } });
 })();
 function tlTargetIndex(x,skip){ let k=0; [...$("tlTrack").children].forEach((el,j)=>{ if (j===skip) return; const r=el.getBoundingClientRect(); if (r.left+r.width/2>x) k++; }); return k; }
 (function(){
@@ -1844,11 +1868,48 @@ $("vtIn").addEventListener("input",e=>{ const it=V.imgs[V.sel]; if (!it) return;
 $("vtOut").addEventListener("input",e=>{ const it=V.imgs[V.sel]; if (!it) return; it.out=Math.max(+e.target.value*(it.rate||1),it.in+.3); trimUI(it); tlBuild(); });
 $("vtIn").addEventListener("change",()=>{ const it=V.imgs[V.sel]; if (it) refreshPoster(it).then(()=>{ vBuild(); vPreviewAt(V.sel); }); });
 $("vtOut").addEventListener("change",()=>{ vBuild(); vPreviewAt(V.sel); });
+/* ----- overlay dragging with center magnets ----- */
+let ovSel=null;
+function ovRef(sel,create){ if (!sel) return null; if (sel.obj){ if (!sel.obj.ov&&create) sel.obj.ov={dx:0,dy:0,s:1}; return sel.obj.ov||{dx:0,dy:0,s:1}; }
+  V.ov=V.ov||{}; if (!V.ov[sel.key]&&create) V.ov[sel.key]={dx:0,dy:0,s:1}; return V.ov[sel.key]||{dx:0,dy:0,s:1}; }
+function ovSelBox(){ const box=$("ovBox"), pn=$("ovPanel");
+  if (!ovSel){ box.hidden=true; pn.hidden=true; return; }
+  const b=OVB.find(x=>x.key===ovSel.key && x.obj===ovSel.obj);
+  pn.hidden=false; $("ovTitle").textContent="גודל ומיקום: "+ovSel.label; const o=ovRef(ovSel); $("ovS").value=Math.round(Math.log2(o.s||1)*100); $("ovSTxt").textContent=Math.round((o.s||1)*100)+"%";
+  if (!b){ box.hidden=true; return; } box.hidden=false;
+  box.style.left=(b.x/VW*100)+"%"; box.style.top=(b.y/VH*100)+"%"; box.style.width=(b.w/VW*100)+"%"; box.style.height=(b.h/VH*100)+"%"; }
+function ovRedraw(){ if (!vBgC) vPrep(); vDrawPreview(vLastT); }
+function ovCommit(){ vpAt=vLastT; vPreview(); }
+$("ovS").addEventListener("input",e=>{ const o=ovRef(ovSel,true); if (!o) return; o.s=Math.round(Math.pow(2,+e.target.value/100)*100)/100; if (Math.abs(o.s-1)<.04) o.s=1; $("ovSTxt").textContent=Math.round(o.s*100)+"%"; ovRedraw(); });
+$("ovS").addEventListener("change",ovCommit);
+$("ovCenter").onclick=()=>{ const o=ovRef(ovSel,true), b=OVB.find(x=>x.key===ovSel.key&&x.obj===ovSel.obj); if (!o||!b) return; o.dx=VW/2-b.cx; o.dy=VH/2-b.cy; ovRedraw(); ovCommit(); };
+$("ovReset").onclick=()=>{ const o=ovRef(ovSel,true); if (!o) return; o.dx=0; o.dy=0; o.s=1; ovRedraw(); ovCommit(); };
+$("ovClose").onclick=()=>{ ovSel=null; ovSelBox(); };
+(function(){
+  const cv=$("vcan"), P=new Map(); let g=null; const SNAP=18;
+  const toC=e=>{ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*VW/r.width,y:(e.clientY-r.top)*VH/r.height}; };
+  const start=()=>{ const o=ovRef(ovSel,true), pts=[...P.values()]; g={o,dx0:o.dx,dy0:o.dy,s0:o.s||1,d0:pts.length>1?Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y):0,
+    mx:pts.reduce((a,p)=>a+p.x,0)/pts.length,my:pts.reduce((a,p)=>a+p.y,0)/pts.length,b:OVB.find(x=>x.key===ovSel.key&&x.obj===ovSel.obj)}; };
+  cv.addEventListener("pointerdown",e=>{ if (cropOn()||vBusy||!$("vout").hidden) return; const c=toC(e);
+    if (!P.size){ let hit=null; for (let i=OVB.length-1;i>=0;i--){ const b=OVB[i]; if (c.x>=b.x-10&&c.x<=b.x+b.w+10&&c.y>=b.y-10&&c.y<=b.y+b.h+10){ hit=b; break; } }
+      if (!hit){ if (ovSel){ ovSel=null; ovSelBox(); } return; } ovSel={key:hit.key,obj:hit.obj,label:hit.label}; }
+    else if (!ovSel) return;
+    e.preventDefault(); try{ cv.setPointerCapture(e.pointerId); }catch(_){} P.set(e.pointerId,c); start(); ovSelBox(); });
+  cv.addEventListener("pointermove",e=>{ if (!g||!P.has(e.pointerId)) return; P.set(e.pointerId,toC(e)); const pts=[...P.values()], o=g.o;
+    if (pts.length>1&&g.d0>10){ const d=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y); o.s=Math.max(.3,Math.min(4,g.s0*d/g.d0)); }
+    const mx=pts.reduce((a,p)=>a+p.x,0)/pts.length, my=pts.reduce((a,p)=>a+p.y,0)/pts.length;
+    o.dx=g.dx0+(mx-g.mx); o.dy=g.dy0+(my-g.my);
+    let sv=false, sh=false; if (g.b){ const cx=g.b.cx+o.dx, cy=g.b.cy+o.dy; if (Math.abs(cx-VW/2)<SNAP){ o.dx=VW/2-g.b.cx; sv=true; } if (Math.abs(cy-VH/2)<SNAP){ o.dy=VH/2-g.b.cy; sh=true; } }
+    $("gV").hidden=!sv; $("gH").hidden=!sh; ovRedraw(); });
+  const end=e=>{ if (!P.has(e.pointerId)) return; P.delete(e.pointerId); if (P.size){ start(); return; }
+    if (g){ g.o.s=Math.round((g.o.s||1)*100)/100; g.o.dx=Math.round(g.o.dx); g.o.dy=Math.round(g.o.dy); g=null; $("gV").hidden=true; $("gH").hidden=true; ovCommit(); } };
+  cv.addEventListener("pointerup",end); cv.addEventListener("pointercancel",end);
+})();
 /* ----- framing: pinch to zoom, drag to move ----- */
 function cropOn(){ return V.sel>=0 && V.imgs[V.sel] && !vBusy && $("vout").hidden && V.step===1; }
 function cropUI(it){ const cz=it.cz||1; $("vcz").value=Math.round(Math.log2(cz)*100); $("vczTxt").textContent=Math.round(cz*100)+"%"; }
 function cropTime(){ const tl=vTimeline(), it=tl[V.sel]; return it?it.start+Math.min(1.2,it.dur*.5):.9; }
-function cropDraw(){ if (!vBgC) vPrep(); vFrame(vctx,cropTime(),vChunks()); }
+function cropDraw(){ if (!vBgC) vPrep(); vDrawPreview(cropTime()); }
 function cropState(){ const on=cropOn(); $("vcan").classList.toggle("cropping",on); const tip=$("croptip"); tip.hidden=!on; if (on) tip.textContent=`מסגור ${V.sel+1} · 2 אצבעות: הגדלה · אצבע: הזזה`; }
 $("vcz").addEventListener("input",e=>{ const it=V.imgs[V.sel]; if (!it) return; let z=Math.pow(2,+e.target.value/100); if (Math.abs(z-1)<.04) z=1; it.cz=Math.round(z*100)/100; $("vczTxt").textContent=Math.round(it.cz*100)+"%"; cropDraw(); });
 $("vcz").addEventListener("change",()=>{ vBuild(); vPreviewAt(V.sel); });
@@ -2437,7 +2498,7 @@ async function projDelete(id){
 const V0=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(V).filter(([k,v])=>typeof v!=="object"||v===null))));
 function vReset(){
   stopTakePreview(); stopSndPrev(); vPauseClips();
-  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null; V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null; V.capT=[];
+  Object.assign(V,JSON.parse(JSON.stringify(V0))); V.imgs=[]; V.takes=[]; V.sounds=[]; V.texts=[]; V.rsel=null; V.ownMusic=null; V.ownMusicBlob=null; V.ownMusicBid=null; V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null; V.capT=[]; V.ov={};
   HIST.reg=new Map(); HIST.seq=0; setOutro();
   ["vtitle","vcap","vend","vLinkEndTxt"].forEach(id=>$(id).value=""); $("vvol").value=Math.round(V.vol*100);
 }
