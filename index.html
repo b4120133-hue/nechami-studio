@@ -160,7 +160,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 22</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 23</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -428,7 +428,14 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <div id="vopts" style="display:flex;flex-direction:column;gap:14px"></div>
         <div class="opt-group">
           <span class="label">תוספות (לא חובה)</span>
-          <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
+          <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vTick" type="button" aria-pressed="false">באנר רץ למטה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
+        </div>
+        <div class="itemPanel" id="vTickBox" hidden>
+          <span class="label" style="margin:0">הבאנר הרץ</span>
+          <label class="note" for="vTickTxt">הטקסט (💚 ו־❤️ יופיעו כלבבות מצוירים)</label>
+          <textarea id="vTickTxt" style="min-height:70px"></textarea>
+          <div class="row"><button class="btn btn-ghost btn-small" id="vTickG" type="button">+ לב ירוק</button><button class="btn btn-ghost btn-small" id="vTickR" type="button">+ לב אדום</button><button class="btn btn-ghost btn-small" id="vTickDef" type="button">חזרה לטקסט המקורי</button></div>
+          <div class="opt-group"><span class="note">מהירות</span><div class="chips" id="vTickSp"></div></div>
         </div>
         <div class="itemPanel" id="vLinkBox" hidden>
           <span class="label" style="margin:0">"כנסו לקישור" על הסרטון</span>
@@ -1034,7 +1041,7 @@ const MUSIC_KINDS=[["none","בלי מוזיקה"],["quiet","שקטה"],["classic
 const VCOLORS={white:"#ffffff",yellow:"#ffe14d",gold:"#f3cf6b",red:"#ff3838",black:"#111111",purple:"#5a1f8f"};
 const VSIZES={s:40,m:54,l:70,xl:92};
 const V={style:"morning", imgs:[], title:"", cap:"", track:0, showName:false,
-  deco:false, outro:false, cornerLogo:true, link:false, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
+  deco:false, outro:false, cornerLogo:true, link:false, tick:false, tickTxt:"הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·", tickSpeed:1, linkFrom:0, linkTo:null, linkPos:"bottom", linkEnd:false, linkEndTxt:"", spk:false, font:"assistant", sel:-1, allFx:"auto", step:1, pos:"bottom", size:"l", color:"white", box:"shadow", mode:"lines", end:"", dur:15,
   musicKind:"quiet", ownMusic:null, musicName:"", vol:.6, ownMusicBlob:null, ownMusicBid:null, takes:[], voiceIdx:-1, voiceAt:.3, sounds:[], texts:[], rsel:null};
 let actx=null;
 function AC(){ if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)(); return actx; }
@@ -1332,6 +1339,31 @@ function vTitle(ctx,tm){
 }
 
 /* ----- closing ----- */
+/* ----- running banner (ticker) ----- */
+const TICK={key:"",c:null}, TH=62, TY=VH-30-TH;
+function heartShape(ctx,x,y,s,fill){ ctx.save(); ctx.beginPath(); ctx.moveTo(x,y+s*.95); ctx.bezierCurveTo(x-s*1.6,y,x-s*1.05,y-s*1.25,x,y-s*.45); ctx.bezierCurveTo(x+s*1.05,y-s*1.25,x+s*1.6,y,x,y+s*.95); ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=s*.22; ctx.strokeStyle="rgba(255,255,255,.95)"; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x-s*.42,y-s*.42,s*.22,s*.14,-.6,0,Math.PI*2); ctx.fillStyle="rgba(255,255,255,.55)"; ctx.fill(); ctx.restore(); }
+function tickStrip(){
+  const txt=(V.tickTxt||"").trim(); if (TICK.key===txt && TICK.c) return TICK.c;
+  const fs=34, hs=15, gap=16, parts=txt.split(/(💚|❤️|❤|♥️|♥)/).filter(x=>x&&x.trim()!==""||/(💚|❤)/.test(x));
+  const m=document.createElement("canvas").getContext("2d"); m.font=`800 ${fs}px Assistant, Arial, sans-serif`;
+  const items=parts.map(x=>/💚/.test(x)?{h:"#21c45d"}:/(❤|♥)/.test(x)?{h:"#e8322f"}:{t:x.trim(),w:m.measureText(x.trim()).width});
+  let W=60; items.forEach(it=>{ W+=(it.h?hs*2.4:it.w)+gap; }); W=Math.max(W,VW+40);
+  const c=document.createElement("canvas"); c.width=Math.ceil(W); c.height=TH; const x=c.getContext("2d");
+  x.direction="rtl"; x.textAlign="right"; x.textBaseline="middle"; x.font=m.font; let cur=W-30;
+  items.forEach(it=>{ if (it.h){ heartShape(x,cur-hs*1.2,TH/2+1,hs,it.h); cur-=hs*2.4+gap; } else { x.fillStyle="#fbf3dc"; x.fillText(it.t,cur,TH/2+2); cur-=it.w+gap; } });
+  TICK.key=txt; TICK.c=c; return c;
+}
+function drawTicker(ctx,t){
+  if (!(V.tickTxt||"").trim()) return; const c=tickStrip(), W=c.width;
+  ctx.save(); const g=ctx.createLinearGradient(0,TY,0,TY+TH); g.addColorStop(0,"rgba(45,14,74,.94)"); g.addColorStop(1,"rgba(20,5,31,.94)");
+  ctx.fillStyle=g; ctx.fillRect(14,TY,VW-28,TH); ctx.fillStyle=goldGrad(ctx,0,0,VW,0); ctx.fillRect(14,TY,VW-28,3); ctx.fillRect(14,TY+TH-3,VW-28,3);
+  ctx.beginPath(); ctx.rect(14,TY,VW-28,TH); ctx.clip();
+  const off=((t*90*(V.tickSpeed||1))%W+W)%W;
+  ctx.drawImage(c,off-W,TY); ctx.drawImage(c,off,TY); if (off-2*W>-W) ctx.drawImage(c,off-2*W,TY);
+  ctx.restore();
+}
 function vLinkPage(ctx,p,t){
   const a=ease(p*2.5), cy=VH/2-60;
   const g=ctx.createRadialGradient(VW/2,cy,20,VW/2,cy,520); g.addColorStop(0,"rgba(255,215,120,.28)"); g.addColorStop(1,"rgba(255,215,120,0)"); ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
@@ -1364,8 +1396,8 @@ function vFrame(ctx,t,chunks){
   const S=VSTYLES[V.style], T=vTotal(), main=T-OUTRO;
   ctx.drawImage(vBgC,0,0);
   if (t>=main){ vOutro(ctx,(t-main)/OUTRO,t); vFx(ctx,t,S); ctx.drawImage(vFrameC,0,0); }
-  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
-      ctx.save(); ctx.globalAlpha=Math.max(0,a); drawLinkBadge(ctx,VW/2,V.linkPos==="top"?(V.cornerLogo?230:120):V.linkPos==="middle"?VH/2:VH-74,40,t); ctx.restore(); } if (V.spk) drawSpeaker(ctx,74,VH-78,40,t); }
+  else { vMain(ctx,t,main,S); vFx(ctx,t,S); ctx.drawImage(vOverC,0,0); vTitle(ctx,t); vCaps(ctx,t,chunks); vTexts(ctx,t); if (V.tick) drawTicker(ctx,t); if (V.link && t>=(V.linkFrom||0) && (V.linkTo==null || t<=V.linkTo)){ const a=Math.min(1,(t-(V.linkFrom||0))/.3, V.linkTo==null?1:(V.linkTo-t)/.3);
+      ctx.save(); ctx.globalAlpha=Math.max(0,a); drawLinkBadge(ctx,VW/2,V.linkPos==="top"?(V.cornerLogo?230:120):V.linkPos==="middle"?VH/2:(V.tick?TY-44:VH-74),40,t); ctx.restore(); } if (V.spk) drawSpeaker(ctx,74,V.tick?TY-48:VH-78,40,t); }
   let dip=0;
   if (OUTRO>0){ const d=Math.abs(t-main); if (d<.25) dip=1-d/.25; if (t>T-.4) dip=Math.max(dip,(t-(T-.4))/.4); }
   if (dip>0){ ctx.fillStyle=`rgba(8,2,14,${dip*.85})`; ctx.fillRect(0,0,VW,VH); }
@@ -1375,7 +1407,7 @@ function vPreviewAt(k){ const tl=vTimeline(); vpAt=tl[k]?tl[k].start+Math.min(1.
 let vpTimer=null;
 /* ----- undo / redo (up to 10 steps back) ----- */
 const HIST={list:[], idx:-1, lock:false, timer:null, reg:new Map(), seq:0};
-const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
+const SNAP_KEYS=["voiceAt","voiceIdx","style","title","cap","end","pos","size","color","box","mode","font","link","spk","showName","deco","outro","cornerLogo","tick","tickTxt","tickSpeed","linkFrom","linkTo","linkPos","linkEnd","linkEndTxt","musicKind","track","vol","dur"];
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
@@ -1703,6 +1735,12 @@ $("vitemVol").addEventListener("change",()=>vBuild());
 $("vCorner").onclick=()=>{ V.cornerLogo=!V.cornerLogo; vPrep(); vBuild(); vPreview(); };
 function setOutro(){ OUTRO=(V.outro||V.linkEnd)?3:0; }
 $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
+const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
+$("vTick").onclick=()=>{ V.tick=!V.tick; vBuild(); vPreviewAt2(1); };
+$("vTickTxt").addEventListener("input",e=>{ V.tickTxt=e.target.value; vPreviewAt2(1); });
+const tickIns=h=>{ const ta=$("vTickTxt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+" "+h+" "+ta.value.slice(ta.selectionEnd||a); V.tickTxt=ta.value; vBuild(); vPreviewAt2(1); };
+$("vTickG").onclick=()=>tickIns("💚"); $("vTickR").onclick=()=>tickIns("❤️");
+$("vTickDef").onclick=()=>{ V.tickTxt=TICK_DEF; $("vTickTxt").value=TICK_DEF; vBuild(); vPreviewAt2(1); };
 $("vLinkEnd").onclick=()=>{ V.linkEnd=!V.linkEnd; setOutro(); vBuild(); vPreview(); };
 $("vLinkEndTxt").addEventListener("input",e=>{ V.linkEndTxt=e.target.value; vPreview(); });
 const linkMain=()=>Math.max(.5,vTotal()-OUTRO);
@@ -1727,6 +1765,8 @@ $("vSpk").onclick=()=>{ V.spk=!V.spk; vBuild(); vPreview(); };
 function vSteps(){
   setTimeout(cropState,0);
   { const tl=$("tl"), dest=V.step===4?$("tlStep4"):$("tlHome"); if (tl.parentNode!==dest) dest.appendChild(tl); $("videoView").classList.toggle("s4",V.step===4); }
+  $("vTick").setAttribute("aria-pressed",V.tick); $("vTickBox").hidden=!V.tick; if (document.activeElement!==$("vTickTxt")) $("vTickTxt").value=V.tickTxt||"";
+  { const sp=$("vTickSp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tickSpeed||1)-v)<.01,v=>{ V.tickSpeed=v; vBuild(); vPreviewAt2(1); }); }
   linkUI(); rowPanel(); $("vCorner").setAttribute("aria-pressed",V.cornerLogo); $("vOutro").setAttribute("aria-pressed",V.outro); $("vendRow").hidden=!V.outro; $("vDeco").setAttribute("aria-pressed",V.deco); $("vName").setAttribute("aria-pressed",V.showName); $("vLink").setAttribute("aria-pressed",V.link); $("vSpk").setAttribute("aria-pressed",V.spk);
   document.querySelectorAll("#videoView .step").forEach(el=>el.hidden=+el.dataset.step!==V.step);
   document.querySelectorAll("#vsteps .stp").forEach(b=>b.setAttribute("aria-current",+b.dataset.go===V.step?"step":"false"));
