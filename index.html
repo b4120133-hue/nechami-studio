@@ -74,6 +74,7 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 .vth.sel{outline:3px solid var(--gold-hi);outline-offset:2px}
 .vth em{position:absolute;top:3px;right:3px;font:700 10px var(--body);font-style:normal;background:rgba(10,2,18,.75);color:var(--gold-hi);padding:1px 5px;border-radius:6px;max-width:calc(100% - 34px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vth img{cursor:pointer}
+.saveBox{display:flex;flex-direction:column;gap:6px;border:1px solid var(--gold);border-radius:14px;padding:12px;background:linear-gradient(180deg,rgba(233,196,106,.14),rgba(233,196,106,.03))}
 .capT{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;padding:2px}
 .capRow{display:flex;gap:6px;align-items:center}
 .capRow input{flex:1;min-width:0;background:rgba(10,2,18,.55);border:1px solid var(--line);border-radius:10px;color:var(--cream);font:600 15px var(--body);padding:7px 9px}
@@ -166,7 +167,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 25</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 26</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -485,6 +486,10 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 
       <div class="step" data-step="4" hidden>
         <p class="note" style="font-size:15px;color:var(--cream)">כאן רואים הכול ביחד: הסרטון למעלה, ומתחת כל השורות. מזיזים, מוסיפים סאונד וטקסט, וצופים שוב עד שזה מושלם.</p>
+        <div class="saveBox">
+          <button class="btn btn-gold" id="vsaveAll" type="button" style="font-size:19px;padding:16px">💾 שמירת הסרטון לטלפון</button>
+          <p class="note" id="vsaveNote">יוצר את הסרטון הסופי ושומר אותו בתיקיית ההורדות בשם שמתחיל ב־Nechami-Community. היצירה לוקחת כאורך הסרטון, לא לצאת מהמסך בזמן הזה.</p>
+        </div>
         <div id="tlStep4"></div>
         <div id="vaskBox" class="opt-group" hidden>
           <label class="label" for="vask">מה לשנות?</label>
@@ -2082,7 +2087,7 @@ function vShowResult(){
   const out=$("vout"); out.src=vURL; out.hidden=false; vcan.hidden=true;
   out.onloadedmetadata=()=>{ if (out.duration===Infinity||isNaN(out.duration)){ out.currentTime=1e101; out.ontimeupdate=()=>{ out.ontimeupdate=null; out.currentTime=0; }; } };
   $("vsave").hidden=false; $("vreplay").hidden=false; $("vback").hidden=false; $("vplay").hidden=true; vSteps();
-  vHadFile=true;
+  vHadFile=true; if (vAutoSave){ vAutoSave=false; setTimeout(saveVideo,300); }
   $("vstatus").textContent="הקובץ מוכן! אפשר לצפות שוב ולשמור. כל שינוי יבטל אותו, ואז יוצרים מחדש.";
 }
 $("vplay").onclick=()=>vRun(false);
@@ -2092,10 +2097,13 @@ $("vreplay").onclick=()=>{ const o=$("vout"); try{ o.currentTime=0; }catch(e){} 
 $("vback").onclick=()=>{ $("vout").pause(); $("vout").hidden=true; vcan.hidden=false; $("vsave").hidden=true; $("vreplay").hidden=true; $("vback").hidden=true;
   $("vplay").hidden=false; vSteps(); $("vstatus").textContent="העריכה נשמרה. אפשר לשנות ולצפות שוב."; vPreview(); };
 const savedNames={};
-$("vsave").onclick=()=>{
+let vAutoSave=false;
+$("vsaveAll").onclick=()=>{ if (vBusy) return; if (vBlob && !$("vout").hidden){ saveVideo(); return; } vAutoSave=true; $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); vRun(true); };
+$("vsave").onclick=()=>saveVideo();
+function saveVideo(){
   if (!vBlob) return;
   const ext=/mp4/.test(vBlob.type)?"mp4":"webm", d=new Date();
-  const base=`${VSTYLES[V.style].name} ${d.getDate()}-${d.getMonth()+1}-${d.getFullYear()}`;
+  const pad=n=>String(n).padStart(2,"0"), base=`Nechami-Community_${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
   const n=savedNames[base]||0;
   if (n>0){
     $("vconfirmTxt").textContent=`כבר שמרת היום סרטון בשם "${base}". הטלפון לא מאפשר להחליף קובץ קיים, אז אפשר לשמור את זה כגרסה ${n+1}, ואת הישן למחוק מהגלריה אם לא צריך אותו.`;
@@ -2105,7 +2113,7 @@ $("vsave").onclick=()=>{
     return;
   }
   doSave(`${base}.${ext}`,base,ext);
-};
+}
 async function doSave(fname,base,ext){
   const st=$("vstatus");
   const dl=downloadsP?await downloadsP.catch(()=>null):null;
