@@ -178,7 +178,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 39</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 40</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1424,7 +1424,9 @@ const OVB=[]; let ovRec=false, vLastT=.9;
 function ovOf(key,obj){ if (obj) return obj.ov||{dx:0,dy:0,s:1}; return (V.ov&&V.ov[key])||{dx:0,dy:0,s:1}; }
 function vCornerLogo(c){ if (!V.cornerLogo||!logo.width) return; const lh=140, lw=lh*logo.width/logo.height, lx=VW-26-lw, ly=V.tick2?24+TH+8:24;
   c.save(); ovApply(c,"logo",null,{x:lx,y:ly,w:lw,h:lh},"הלוגו"); c.shadowColor="rgba(0,0,0,.55)"; c.shadowBlur=16; c.shadowOffsetY=6; c.drawImage(logo,lx,ly,lw,lh); c.restore(); }
-function ovApply(ctx,key,obj,box,label){ const o=ovOf(key,obj), cx=box.x+box.w/2, cy=box.y+box.h/2;
+function ovApply(ctx,key,obj,box,label){ const o0=ovOf(key,obj), cx=box.x+box.w/2, cy=box.y+box.h/2;
+  const s=isFinite(o0.s)&&o0.s>0?Math.max(.3,Math.min(4,o0.s)):1, cl=(v,a,b)=>isFinite(v)?Math.max(a,Math.min(b,v)):0;
+  const o={s,dx:cl(o0.dx,40-cx,VW-40-cx),dy:cl(o0.dy,40-cy,VH-40-cy)}; /* never lets anything leave the screen */
   ctx.translate(cx+o.dx,cy+o.dy); ctx.scale(o.s,o.s); ctx.translate(-cx,-cy);
   if (ovRec) OVB.push({key,obj,label,cx,cy,x:cx+o.dx-box.w*o.s/2,y:cy+o.dy-box.h*o.s/2,w:box.w*o.s,h:box.h*o.s}); }
 function vDrawPreview(t){ OVB.length=0; ovRec=true; try{ vFrame(vctx,t,vChunks()); }finally{ ovRec=false; } vLastT=t; ovSelBox(); }
@@ -1589,7 +1591,7 @@ function histCommit(){ if (HIST.lock) return;
   HIST.last=now; histButtons(); }
 function histRestore(str){
   const o=JSON.parse(str); HIST.lock=true;
-  SNAP_KEYS.forEach(k=>V[k]=o[k]); setOutro(); $("vLinkEndTxt").value=V.linkEndTxt||"";
+  SNAP_KEYS.forEach(k=>V[k]=o[k]!==undefined?o[k]:JSON.parse(JSON.stringify(VDEF[k]===undefined?null:VDEF[k]))); if (!V.ov||typeof V.ov!=="object") V.ov={}; setOutro(); $("vLinkEndTxt").value=V.linkEndTxt||"";
   V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol,rate])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol,rate:rate||1}); return sd; }); V.rsel=null;
   V.imgs=o.items.map(([id,fx,d,i,out,vol,mute,rate,cz,cx,cy])=>{ const m=HIST.reg.get(id); m.fx=fx; m.rate=rate||1; m.cz=cz||1; m.cx=cx||0; m.cy=cy||0; if (d!=null) m.d=d; if (i!=null){ m.in=i; m.out=out; } if (vol!=null) m.vol=vol; m.mute=mute; return m; });
   V.sel=-1; $("vtitle").value=V.title; $("vcap").value=V.cap; $("vend").value=V.end; $("vvol").value=Math.round(V.vol*100);
@@ -1904,6 +1906,7 @@ $("ovClose").onclick=()=>{ ovSel=null; ovSelBox(); };
     if (pts.length>1&&g.d0>10){ const d=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y); o.s=Math.max(.3,Math.min(4,g.s0*d/g.d0)); }
     const mx=pts.reduce((a,p)=>a+p.x,0)/pts.length, my=pts.reduce((a,p)=>a+p.y,0)/pts.length;
     o.dx=g.dx0+(mx-g.mx); o.dy=g.dy0+(my-g.my);
+    if (g.b){ o.dx=Math.max(40-g.b.cx,Math.min(VW-40-g.b.cx,o.dx)); o.dy=Math.max(40-g.b.cy,Math.min(VH-40-g.b.cy,o.dy)); }
     let sv=false, sh=false; if (g.b){ const cx=g.b.cx+o.dx, cy=g.b.cy+o.dy; if (Math.abs(cx-VW/2)<SNAP){ o.dx=VW/2-g.b.cx; sv=true; } if (Math.abs(cy-VH/2)<SNAP){ o.dy=VH/2-g.b.cy; sh=true; } }
     $("gV").hidden=!sv; $("gH").hidden=!sh; ovRedraw(); });
   const end=e=>{ if (!P.has(e.pointerId)) return; P.delete(e.pointerId); if (P.size){ start(); return; }
@@ -2066,7 +2069,7 @@ function capTBuild(){
     row.append(tm,inp,del); box.appendChild(row); });
 }
 $("vcapTclear").onclick=()=>{ V.capT=[]; vBuild(); vPreview(); $("vtransNote").textContent="התמלול נמחק. אפשר לתמלל שוב או לכתוב ידנית."; };
-$("vTick2").onclick=()=>{ V.tick2=!V.tick2; vPrep(); vBuild(); vPreviewAt2(1); };
+$("vTick2").onclick=()=>{ V.tick2=!V.tick2; if (V.tick2){ ovFresh("tick2"); if (!(V.tick2Txt||"").trim() && !V.tick2Img) V.tick2Logo=true; } vPrep(); vBuild(); vPreviewAt2(1); if (V.tick2) setTimeout(()=>$("vTick2Box").scrollIntoView({block:"nearest",behavior:"smooth"}),60); };
 $("vTick2Txt").addEventListener("input",e=>{ V.tick2Txt=e.target.value; vPreviewAt2(1); });
 const t2Ins=h=>{ const ta=$("vTick2Txt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+h+ta.value.slice(ta.selectionEnd||a); V.tick2Txt=ta.value; vBuild(); vPreviewAt2(1); ta.focus(); };
 $("vT2Coupon").onclick=()=>t2Ins(" קוד קופון: *הקוד כאן* "); $("vT2G").onclick=()=>t2Ins(" 💚 "); $("vT2R").onclick=()=>t2Ins(" ❤️ ");
@@ -2076,7 +2079,8 @@ async function setT2Img(b,bid){ const url=URL.createObjectURL(b); const im=await
   V.tick2Img=c; V.tick2Blob=b; V.tick2Bid=bid||null; }
 $("vT2File").addEventListener("change",async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if (!f) return; try{ await setT2Img(f); }catch(err){ $("vstatus").textContent="התמונה לא נפתחה. נסי תמונה אחרת."; } vBuild(); vPreviewAt2(1); });
 $("vT2Rm").onclick=()=>{ V.tick2Img=null; V.tick2Blob=null; V.tick2Bid=null; vBuild(); vPreviewAt2(1); };
-$("vTick").onclick=()=>{ V.tick=!V.tick; vBuild(); vPreviewAt2(1); };
+function ovFresh(k){ if (V.ov && V.ov[k]) delete V.ov[k]; }
+$("vTick").onclick=()=>{ V.tick=!V.tick; if (V.tick){ ovFresh("tick"); if (!(V.tickTxt||"").trim()){ V.tickTxt=TICK_DEF; $("vTickTxt").value=TICK_DEF; } } vBuild(); vPreviewAt2(1); if (V.tick) setTimeout(()=>$("vTickBox").scrollIntoView({block:"nearest",behavior:"smooth"}),60); };
 $("vTickTxt").addEventListener("input",e=>{ V.tickTxt=e.target.value; vPreviewAt2(1); });
 const tickIns=h=>{ const ta=$("vTickTxt"), a=ta.selectionStart==null?ta.value.length:ta.selectionStart; ta.value=ta.value.slice(0,a)+" "+h+" "+ta.value.slice(ta.selectionEnd||a); V.tickTxt=ta.value; vBuild(); vPreviewAt2(1); };
 $("vTickG").onclick=()=>tickIns("💚"); $("vTickR").onclick=()=>tickIns("❤️");
@@ -2594,6 +2598,7 @@ $("pjNew").onclick=async()=>{ if (PJ.cur){ clearTimeout(PJ.timer); await projSav
 $("pjName").addEventListener("input",e=>{ PJ.name=e.target.value; projTouch(); });
 $("vrecLive").onclick=recWhileWatching;
 
+const VDEF={}; SNAP_KEYS.forEach(k=>{ try{ VDEF[k]=JSON.parse(JSON.stringify(V[k]===undefined?null:V[k])); }catch(e){ VDEF[k]=null; } });
 vBuild();
 HIST.list=[snap()]; HIST.idx=0; histButtons(); projBar();
 showTab(location.hash==="#video"?"video":"ads");
