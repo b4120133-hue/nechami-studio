@@ -178,7 +178,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 38</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 39</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1952,20 +1952,24 @@ function setOutro(){ OUTRO=(V.outro||V.linkEnd)?3:0; }
 $("vOutro").onclick=()=>{ V.outro=!V.outro; setOutro(); vBuild(); vPreview(); };
 const TICK_DEF="הקהילה של נחמי מתחדשת · הסטטוסים במצב אחיד · אם אתם אוהבים סמנו 💚 · אם אתם לא אוהבים סמנו ❤️ ·";
 /* ----- automatic transcription (Whisper, runs on the phone) ----- */
-const TR_URL="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2";
+const TR_URL="https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
 let trWorker=null, trBusy=false, trKind="good", trNoGpu=false, trCancel=null;
-try{ trKind=localStorage.getItem("trKind")||"good"; trNoGpu=localStorage.getItem("trNoGpu")==="1"; }catch(e){}
+try{ trKind=localStorage.getItem("trKind2")||"good"; trNoGpu=localStorage.getItem("trNoGpu2")==="1"; }catch(e){}
 function trKill(){ if (trWorker){ try{ trWorker.terminate(); }catch(e){} } trWorker=null; }
 function trGetWorker(){
   if (trWorker) return trWorker;
   const code=`import {pipeline,env} from "${TR_URL}"; env.allowLocalModels=false; const P={};
+const MODELS={good:{id:"lial-apps/siman-ivrit-turbo",dtype:{encoder_model:"q4",decoder_model_merged:"q4"},dev:"webgpu"},fast:{id:"Xenova/whisper-small",dtype:"q8",dev:"wasm"}};
+async function gpuOk(){ try{ if (!navigator.gpu) return false; const a=await Promise.race([navigator.gpu.requestAdapter(),new Promise(r=>setTimeout(()=>r(null),4000))]); return !!a; }catch(e){ return false; } }
 self.postMessage({type:"lib"});
-const MODELS={good:{id:"ivrit-ai/whisper-large-v3-turbo-onnx",dtype:{encoder_model:"q4",decoder_model_merged:"q4"}},fast:{id:"Xenova/whisper-small",dtype:"q8"}};
-async function get(kind,dev){ const k=kind+dev; if (!P[k]){ const m=MODELS[kind]; P[k]=await pipeline("automatic-speech-recognition",m.id,{dtype:m.dtype,device:dev,progress_callback:p=>self.postMessage({type:"prog",p})}); } return P[k]; }
-self.onmessage=async e=>{ const kind=e.data.kind||"good"; const opts={language:"hebrew",task:"transcribe",return_timestamps:true,chunk_length_s:30,stride_length_s:5};
- let devs=(!e.data.noGpu && ("gpu" in navigator))?["webgpu","wasm"]:["wasm"], last=null;
- for (const dev of devs){ try{ const asr=await get(kind,dev); self.postMessage({type:"run",dev}); const r=await asr(e.data.audio,opts); self.postMessage({type:"done",r}); return; }catch(err){ last=err; self.postMessage({type:"note",msg:dev+": "+String(err&&err.message||err)}); } }
- self.postMessage({type:"err",msg:String(last&&last.message||last)}); };`;
+self.onmessage=async e=>{ const d=e.data; try{
+  if (d.cmd==="gpu"){ self.postMessage({type:"gpu",ok:await gpuOk()}); return; }
+  const m=MODELS[d.kind];
+  if (!P[d.kind]) P[d.kind]=await pipeline("automatic-speech-recognition",m.id,{dtype:m.dtype,device:m.dev,progress_callback:p=>self.postMessage({type:"prog",p})});
+  self.postMessage({type:"run"});
+  const r=await P[d.kind](d.audio,{language:"hebrew",task:"transcribe",return_timestamps:true});
+  self.postMessage({type:"done",r});
+ }catch(err){ P[d.kind]=null; self.postMessage({type:"err",msg:String(err&&err.message||err)}); } };`;
   trWorker=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})),{type:"module"});
   return trWorker;
 }
@@ -1974,25 +1978,29 @@ async function bufOf(o){ if (o.buf) return o.buf; if (!o.blob) throw new Error("
 async function to16k(buf,from,to){ from=Math.max(0,from||0); to=Math.min(buf.duration,to==null?buf.duration:to); const len=Math.max(1600,Math.ceil((to-from)*16000));
   const oc=new OfflineAudioContext(1,len,16000), src=oc.createBufferSource(); src.buffer=buf; src.connect(oc.destination); src.start(0,from,Math.max(.1,to-from));
   const r=await oc.startRendering(); return new Float32Array(r.getChannelData(0)); }
-/* runs one piece of audio; never hangs: a watchdog stops a stuck download or a crashed engine */
-function trRun(audio,kind,onProg){ return new Promise((res,rej)=>{ let w; try{ w=trGetWorker(); }catch(e){ rej(e); return; } const files={};
-  const secs=audio.length/16000; let phase="lib", timer=null, done=false, gpuUsed=false;
+/* cut long audio into pieces of up to ~26s, each cut at the quietest moment, so the bar moves piece by piece */
+function trPieces(a){ const SR=16000, out=[]; let s=0;
+  while (a.length-s>28*SR){ let best=s+26*SR, low=1e9; const W=SR/20;
+    for (let p=s+18*SR; p<s+27*SR; p+=W){ let e=0; for (let k=p;k<p+W;k++) e+=a[k]*a[k]; if (e<low){ low=e; best=p+W/2; } }
+    out.push({off:s/SR,a:a.slice(s,best)}); s=best; }
+  out.push({off:s/SR,a:a.slice(s)}); return out; }
+/* one message to the engine; a watchdog makes sure it never hangs silently */
+function trAsk(msg,onProg,limits){ return new Promise((res,rej)=>{ let w; try{ w=trGetWorker(); }catch(e){ rej(e); return; }
+  const files={}; let phase="lib", timer=null, done=false;
   const finish=(err,val)=>{ if (done) return; done=true; clearTimeout(timer); trCancel=null; if (err){ trKill(); rej(err); } else res(val); };
-  const arm=()=>{ clearTimeout(timer); const ms=phase==="run"?(120+secs*(kind==="good"?10:5))*1000:(phase==="lib"?60000:120000);
-    timer=setTimeout(()=>{ if (phase==="run" && gpuUsed){ trNoGpu=true; try{ localStorage.setItem("trNoGpu","1"); }catch(e){} }
-      finish(new Error(phase==="run"?"stuck-run":"stuck-load")); },ms); };
-  trCancel=()=>finish(new Error("cancel"));
-  arm();
+  const arm=()=>{ clearTimeout(timer); timer=setTimeout(()=>finish(new Error("stuck-"+phase)),(limits[phase]||90)*1000); };
+  trCancel=()=>finish(new Error("cancel")); arm();
   w.onmessage=e=>{ const d=e.data; if (done) return;
-    if (d.type==="lib"){ phase="load"; arm(); onProg("load",0); }
-    else if (d.type==="prog"){ const p=d.p; phase="load"; arm(); if (p.file && (p.status==="progress"||p.status==="initiate"||p.status==="done")){ const cur=files[p.file]||[0,0]; files[p.file]=p.status==="progress"?[p.loaded||0,p.total||0]:p.status==="done"?[cur[1]||cur[0],cur[1]||cur[0]]:cur; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg("load",b?a/b:0); } }
-    else if (d.type==="note"){ console.warn("tr",d.msg); }
-    else if (d.type==="run"){ phase="run"; gpuUsed=d.dev==="webgpu"; arm(); onProg("run",0); }
+    if (d.type==="lib"){ phase="load"; arm(); }
+    else if (d.type==="gpu") finish(null,d.ok);
+    else if (d.type==="prog"){ const p=d.p; phase="load"; arm(); if (p.file && p.status==="progress"){ files[p.file]=[p.loaded||0,p.total||0]; let a=0,b=0; Object.values(files).forEach(([l,t])=>{a+=l;b+=t;}); onProg&&onProg("load",b?a/b:0,b); } }
+    else if (d.type==="run"){ phase="run"; arm(); onProg&&onProg("run",0); }
     else if (d.type==="done") finish(null,d.r); else if (d.type==="err") finish(new Error(d.msg)); };
   w.onerror=e=>{ e.preventDefault&&e.preventDefault(); finish(new Error("worker: "+(e.message||"load failed"))); };
-  w.postMessage({audio,kind,noGpu:trNoGpu},[audio.buffer]); }); }
+  if (msg.audio) w.postMessage(msg,[msg.audio.buffer]); else w.postMessage(msg); }); }
 function splitSeg(text,s,e){ const w=text.trim().split(/\s+/).filter(Boolean); if (w.length<=9) return [{text:w.join(" "),s,e}];
   const out=[], n=Math.ceil(w.length/9), per=Math.ceil(w.length/n), d=(e-s)/w.length; for (let i=0;i<w.length;i+=per){ const part=w.slice(i,i+per); out.push({text:part.join(" "),s:s+i*d,e:s+(i+part.length)*d}); } return out; }
+const fmtClock=s=>Math.floor(s/60)+":"+String(Math.floor(s%60)).padStart(2,"0");
 $("vtrans").onclick=async()=>{
   const st=$("vtransNote");
   if (trBusy){ st.textContent="התמלול עדיין רץ. אפשר לחכות, או ללחוץ על \"ביטול\" ולנסות שוב."; return; }
@@ -2001,42 +2009,51 @@ $("vtrans").onclick=async()=>{
   V.sounds.forEach(sd=>{ if (!sd.voice||(!sd.buf&&!sd.blob)||sd.vol===0) return; const r=sd.rate||1; jobs.push({get:async()=>{ const bf=await bufOf(sd); return to16k(bf,sd.in,sd.out); },map:ts=>sd.at+ts/r,end:sd.at+((sd.out==null?(sd.buf?sd.buf.duration:0):sd.out)-(sd.in||0))/r}); });
   vTimeline().forEach(it=>{ const m=it.m; if (m.kind!=="vid"||m.mute||m.vol===0||!m.blob) return;
     jobs.push({get:async()=>{ if (!m.abuf){ const ab=await m.blob.arrayBuffer(); m.abuf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); } return to16k(m.abuf,m.in,m.out); },map:ts=>it.start+ts/(m.rate||1),end:it.start+it.dur}); });
-  if (!jobs.length){ st.textContent="⚠️ אין דיבור לתמלל. קודם צריך הקלטה (בשלב 2), או סרטון עם קול."; st.classList.add("warn"); return; }
+  if (!jobs.length){ st.textContent="⚠️ אין דיבור לתמלל. קודם צריך הקלטה (בשלב 2), או סרטון עם קול."; st.classList.add("warn"); st.scrollIntoView({block:"center",behavior:"smooth"}); return; }
   if (!window.Worker||!window.OfflineAudioContext){ st.textContent="הדפדפן הזה לא תומך בתמלול. פתחי את האפליקציה בכרום."; return; }
   st.classList.remove("warn"); $("vtransErr").textContent="";
-  trBusy=true; $("vtrans").disabled=true; $("vtransCancel").hidden=false; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="3%";
-  st.textContent="מתחיל… מתחבר למנוע התמלול";
+  trBusy=true; $("vtrans").disabled=true; $("vtransCancel").hidden=false; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="2%";
+  const t0=Date.now(); let msg="מתחיל…"; const show=()=>{ st.textContent=msg+"  ⏱ "+fmtClock((Date.now()-t0)/1000); };
+  const tick=setInterval(show,1000); const say=m=>{ msg=m; show(); }; say("מתחיל… מתחבר למנוע התמלול");
+  st.scrollIntoView({block:"center",behavior:"smooth"});
   const segs=[]; let failed=false, cancelled=false, kind=trKind, errMsg="";
-  for (let j=0;j<jobs.length && !cancelled;j++){ const job=jobs[j];
-    let audio=null;
-    try{ st.textContent="מכין את השמע…"; audio=await job.get(); }catch(e){ failed=true; errMsg="audio: "+(e.message||e); continue; }
-    for (let attempt=0; attempt<3; attempt++){
-      const a=audio.slice();
-      try{
-        const r=await trRun(a,kind,(phase,f)=>{ fill.classList.remove("pulse");
-          if (phase==="load"){ st.textContent=`מוריד את מנוע התמלול${kind==="good"?" המדויק":" המהיר"} (רק בפעם הראשונה)… ${Math.round(f*100)}%`; fill.style.width=Math.max(3,Math.round(f*100))+"%"; }
-          else { st.textContent=`מתמלל${jobs.length>1?` (${j+1} מתוך ${jobs.length})`:""}… זה יכול לקחת כמה דקות. לא לסגור את האפליקציה.`; fill.style.width="100%"; fill.classList.add("pulse"); } });
-        (r.chunks||[{text:r.text,timestamp:[0,null]}]).forEach(c=>{ const s0=c.timestamp&&c.timestamp[0]!=null?c.timestamp[0]:0, e0=c.timestamp&&c.timestamp[1]!=null?c.timestamp[1]:s0+3;
-          const text=(c.text||"").trim(); if (!text) return; splitSeg(text,job.map(s0),Math.min(job.end,job.map(e0))).forEach(x=>segs.push(x)); });
-        break;
-      }catch(e){ errMsg=String(e.message||e);
-        if (errMsg==="cancel"){ cancelled=true; break; }
-        if (navigator.onLine===false){ failed=true; break; }
-        if (kind==="good" && attempt>=1){ kind="fast"; st.textContent="המנוע המדויק לא עבד בטלפון הזה. מנסה עם המנוע המהיר…"; continue; }
-        if (attempt<2){ st.textContent="משהו נתקע, מנסה שוב…"; continue; }
-        failed=true; }
+  try{
+    if (kind==="good"){ if (trNoGpu) kind="fast"; else { say("בודק אם הטלפון מתאים למנוע המדויק…");
+      let ok=false; try{ ok=await trAsk({cmd:"gpu"},null,{lib:60,load:20}); }catch(e){ errMsg=String(e.message||e); if (errMsg==="cancel") throw e; }
+      if (!ok){ kind="fast"; trNoGpu=true; try{ localStorage.setItem("trNoGpu2","1"); }catch(e){} } } }
+    const pieces=[];
+    for (const job of jobs){ say("מכין את השמע…"); let a; try{ a=await job.get(); }catch(e){ errMsg="audio: "+(e.message||e); failed=true; continue; }
+      trPieces(a).forEach(p=>pieces.push({job,off:p.off,a:p.a})); }
+    let loaded=false;
+    for (let i=0;i<pieces.length;i++){ const pc=pieces[i];
+      for (let attempt=0; ; attempt++){
+        try{
+          const r=await trAsk({audio:pc.a.slice(),kind},(ph,f,tot)=>{ if (ph==="load"){ fill.classList.remove("pulse"); say(`מוריד את מנוע התמלול${kind==="good"?" המדויק":" המהיר"} (רק בפעם הראשונה, עדיף ב־Wi‑Fi)… ${Math.round(f*100)}%${tot?` מתוך ${Math.round(tot/1048576)}MB`:""}`); fill.style.width=Math.max(2,Math.round(f*100))+"%"; }
+            else { loaded=true; say(`מתמלל… חלק ${i+1} מתוך ${pieces.length}. לא לסגור את האפליקציה.`); fill.style.width=Math.max(5,Math.round(i/pieces.length*100))+"%"; fill.classList.add("pulse"); } },
+            {lib:90,load:120,run:kind==="good"?150:240});
+          (r.chunks||[{text:r.text,timestamp:[0,null]}]).forEach(c=>{ const s0=pc.off+(c.timestamp&&c.timestamp[0]!=null?c.timestamp[0]:0), e0=c.timestamp&&c.timestamp[1]!=null?pc.off+c.timestamp[1]:s0+3;
+            const text=(c.text||"").trim(); if (!text) return; splitSeg(text,pc.job.map(s0),Math.min(pc.job.end,pc.job.map(e0))).forEach(x=>segs.push(x)); });
+          break;
+        }catch(e){ errMsg=String(e.message||e);
+          if (errMsg==="cancel") throw e;
+          if (navigator.onLine===false){ failed=true; throw e; }
+          if (kind==="good"){ kind="fast"; trNoGpu=true; try{ localStorage.setItem("trNoGpu2","1"); }catch(x){} say("המנוע המדויק לא עבד בטלפון הזה. עובר למנוע המהיר…"); continue; }
+          if (attempt<1){ say("משהו נתקע, מנסה שוב…"); continue; }
+          failed=true; throw e; }
+      }
+      fill.style.width=Math.round((i+1)/pieces.length*100)+"%";
     }
-  }
-  fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; $("vtransCancel").hidden=true; trBusy=false;
+  }catch(e){ if (String(e.message||e)==="cancel") cancelled=true; else failed=true; }
+  clearInterval(tick); fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; $("vtransCancel").hidden=true; trBusy=false;
   if (cancelled){ st.textContent="התמלול בוטל. אפשר ללחוץ שוב על התמלול."; return; }
   if (segs.length){ segs.sort((a,b)=>a.s-b.s); segs.forEach((x,i)=>{ if (segs[i+1] && x.e>segs[i+1].s) x.e=segs[i+1].s; x.s=Math.round(x.s*10)/10; x.e=Math.round(Math.max(x.s+.4,x.e)*10)/10; });
     V.capT=segs; st.textContent=`✓ התמלול מוכן: ${segs.length} משפטים, כל אחד בזמן שלו.${kind!==trKind?" (נעשה עם המנוע המהיר.)":""} אפשר לתקן מילים ברשימה, ולבחור למטה כתב, מיקום, גודל וצבע.`; vBuild(); vPreview(); }
-  else if (failed){ st.textContent="⚠️ התמלול לא הצליח"+(navigator.onLine===false?": אין חיבור לאינטרנט.":". כדאי לנסות שוב ב־Wi-Fi, או לבחור את המנוע \"מהיר\"."); st.classList.add("warn"); $("vtransErr").textContent="פרטים לבדיקה: "+errMsg.slice(0,160); }
+  else if (failed){ st.textContent="⚠️ התמלול לא הצליח"+(navigator.onLine===false?": אין חיבור לאינטרנט.":". כדאי לנסות שוב ב־Wi‑Fi."); st.classList.add("warn"); $("vtransErr").textContent="פרטים לבדיקה: "+errMsg.slice(0,200); }
   else st.textContent="לא נמצא דיבור לתמלל.";
 };
 $("vtransCancel").onclick=()=>{ if (trCancel) trCancel(); else { trKill(); } };
-function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ if (trBusy) return; trKind=k; trKill(); try{ localStorage.setItem("trKind",k); }catch(e){} trKindUI(); });
-  $("vtrKindNote").textContent=trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים כ־760MB (רק ב־Wi-Fi), והתמלול לוקח יותר זמן.":"מנוע כללי וקל יותר (כ־250MB). מהיר יותר, אבל עם יותר טעויות בעברית."; }
+function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ if (trBusy) return; trKind=k; if (k==="good"){ trNoGpu=false; try{ localStorage.removeItem("trNoGpu2"); }catch(e){} } trKill(); try{ localStorage.setItem("trKind2",k); }catch(e){} trKindUI(); });
+  $("vtrKindNote").textContent=trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים בערך חצי ג'יגה (עדיף ב־Wi‑Fi). אם הטלפון לא מתאים לו, האפליקציה עוברת לבד למנוע המהיר.":"מנוע כללי וקל יותר (בערך רבע ג'יגה). עם יותר טעויות בעברית."; }
 function capTBuild(){
   const has=V.capT&&V.capT.length, box=$("vcapT"); box.hidden=!has; $("vcapTbar").hidden=!has; $("vcapManual").hidden=!!has; if (!has) return;
   if (box.contains(document.activeElement)) return; box.innerHTML="";
