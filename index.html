@@ -172,13 +172,27 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .chip[disabled]{opacity:.4;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
+<script>
+/* shows any hidden error on screen, so a screenshot tells Claude exactly what broke */
+(function(){ var shown={};
+  function show(msg){ msg=String(msg||"").slice(0,220); if (!msg||/ResizeObserver|Script error|cancel|AbortError/.test(msg)||shown[msg]) return; shown[msg]=1;
+    var add=function(){ var b=document.getElementById("errBar"); if (!b){ b=document.createElement("div"); b.id="errBar";
+      b.style.cssText="position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:9999;background:#7a0f1d;color:#fff;border:2px solid #ffb3bd;border-radius:12px;padding:10px 12px;font:14px/1.4 Assistant,system-ui,sans-serif;direction:rtl;box-shadow:0 8px 24px rgba(0,0,0,.5)";
+      b.innerHTML='<b>⚠️ קרתה תקלה.</b> צלמו מסך ושלחו לקלוד. <button type="button" style="float:left;background:#fff;color:#7a0f1d;border:0;border-radius:8px;padding:2px 10px;font-weight:700">סגירה</button><div dir="ltr" style="font:12px monospace;margin-top:6px;word-break:break-all"></div>';
+      b.querySelector("button").onclick=function(){ b.remove(); }; document.body.appendChild(b); }
+      b.querySelector("div").textContent+=(b.querySelector("div").textContent?" | ":"")+msg; };
+    if (document.body) add(); else document.addEventListener("DOMContentLoaded",add); }
+  window.addEventListener("error",function(e){ if (e && e.message) show(e.message+(e.lineno?" @"+e.lineno:"")); });
+  window.addEventListener("unhandledrejection",function(e){ var r=e&&e.reason; show("promise: "+(r&&r.message||r)); });
+})();
+</script>
 
 <div class="wrap" dir="rtl" lang="he">
   <header>
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 40</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 41</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
