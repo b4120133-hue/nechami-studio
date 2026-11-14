@@ -5,6 +5,7 @@ self.addEventListener('activate',e=>e.waitUntil((async()=>{ for (const k of awai
 self.addEventListener('fetch',e=>{
   const r=e.request; if (r.method!=='GET') return;
   const url=new URL(r.url); if (url.origin!==location.origin) return;
+  if (url.pathname.includes('/kupa/')) return; // separate customers app has its own worker
   e.respondWith((async()=>{
     const cache=await caches.open(C), key=r.mode==='navigate'?new URL('./',location).href:r.url;
     const net=fetch(r.url,{cache:'no-cache'}).then(res=>{ if (res&&res.ok) cache.put(key,res.clone()).catch(()=>{}); return res; });
