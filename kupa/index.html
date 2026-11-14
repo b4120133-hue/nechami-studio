@@ -178,6 +178,13 @@ background:radial-gradient(ellipse at 50% -20%,#6a35a8,transparent 70%),linear-g
 .fill{height:100%;background:var(--goldg);border-radius:999px}.fill.warm{background:linear-gradient(90deg,#e0a43a,#c77a1a)}.fill.hot{background:linear-gradient(90deg,#d35b4a,#a8281c)}
 nav button{font-size:11px}
 .kpis.k3{grid-template-columns:repeat(3,1fr);gap:8px}.kpis.k3 .kpi{padding:10px}.kpis.k3 .v{font-size:19px}.kpis.k3 .l{font-size:12px}
+.login{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(ellipse at 50% 0%,#6a35a8,transparent 60%),linear-gradient(180deg,var(--p7),var(--p9))}
+.login-in{width:100%;max-width:360px;text-align:center;color:var(--gold-l)}
+.login .logo{width:170px;margin:0 auto 10px}
+.login h2{font-family:var(--fh);font-weight:900;font-size:26px;margin:4px 0;background:var(--goldg);-webkit-background-clip:text;background-clip:text;color:transparent}
+.login p{margin:0 0 14px;opacity:.85}
+.login input{text-align:center;font-size:22px;letter-spacing:4px;border:1.5px solid var(--gold);background:rgba(255,255,255,.96)}
+.lg-err{min-height:22px;margin-top:8px;color:#ffb4a8;font-weight:600}
 </style>
 </head>
 <body>
@@ -249,17 +256,87 @@ async function saveDoc(col,obj){
   const i=state[col].findIndex(x=>x.id===obj.id);if(i>=0)state[col][i]=obj;else state[col].push(obj);
   render();
   if(mode==='db'){try{const{id,...rest}=obj;await db.collection(col).doc(obj.id).set(JSON.parse(JSON.stringify(rest)))}catch(e){console.error(e);toast('שגיאה בשמירה – נסו שוב')}}
-  else lsSave(col);
+  else{lsSave(col);if(mode==='cloud')queue({op:'put',col,id:obj.id,doc:JSON.parse(JSON.stringify(obj))})}
   return obj;
 }
 async function delDoc(col,id){
   state[col]=state[col].filter(x=>x.id!==id);render();
-  if(mode==='db'){try{await db.collection(col).doc(id).delete()}catch(e){toast('שגיאה במחיקה')}}else lsSave(col);
+  if(mode==='db'){try{await db.collection(col).doc(id).delete()}catch(e){toast('שגיאה במחיקה')}}else{lsSave(col);if(mode==='cloud')queue({op:'del',col,id})}
 }
 function setBanner(){
+  if(mode==='cloud'){$('#banner').innerHTML=syncState==='offline'?'<div class="banner">אין חיבור לאינטרנט – השינויים שמורים בטלפון ויישלחו ל־Drive כשהחיבור יחזור</div>':syncState==='first'?'<div class="banner" style="background:#f1ecf8;border-color:#ddd0ee;color:#6b3fa0">טוען נתונים מ־Drive…</div>':'';return}
   $('#banner').innerHTML=mode==='local'?'':mode==='loading'?'<div class="banner" style="background:#f1ecf8;border-color:#ddd0ee;color:#6b3fa0">טוען נתונים…</div>':'';
 }
+/* ===== shared storage in Google Drive (Apps Script) ===== */
+const API_URL='';
+let syncState='first',outbox=[],flushing=false,apiKey='';
+function getKey(){try{return localStorage.getItem('crm_key')||''}catch(e){return''}}
+function setKey(k){try{k?localStorage.setItem('crm_key',k):localStorage.removeItem('crm_key')}catch(e){}}
+async function api(body){
+  const r=await fetch(API_URL,{method:'POST',body:JSON.stringify(Object.assign({key:apiKey},body))});
+  const j=await r.json();if(!j.ok){const e=new Error(j.error||'error');e.auth=j.error==='auth';throw e}return j;
+}
+function saveOutbox(){idbSet('crm_outbox',outbox).catch(()=>{})}
+function queue(op){outbox=outbox.filter(x=>x.id!==op.id);outbox.push(op);saveOutbox();flush()}
+async function flush(){
+  if(flushing||!outbox.length)return;flushing=true;
+  try{
+    while(outbox.length){
+      const batch=outbox.slice(0,20);
+      const puts=batch.filter(x=>x.op==='put'),dels=batch.filter(x=>x.op==='del');
+      if(puts.length)await api({op:'put',docs:puts.map(x=>({id:x.id,col:x.col,doc:x.doc}))});
+      if(dels.length)await api({op:'del',ids:dels.map(x=>x.id)});
+      outbox=outbox.filter(x=>!batch.includes(x));saveOutbox();
+    }
+    if(syncState==='offline'){syncState='ok';setBanner()}
+  }catch(e){if(e.auth){logout();return}syncState='offline';setBanner()}
+  finally{flushing=false}
+}
+async function sync(){
+  if(mode!=='cloud')return;
+  try{
+    await flush();
+    const j=await api({op:'list'});
+    const fresh={customers:[],orders:[]};
+    j.rows.forEach(r=>{if(!fresh[r.col])return;try{fresh[r.col].push(Object.assign(JSON.parse(r.json),{id:r.id}))}catch(e){}});
+    // first time on this phone: send up anything typed before the shared storage existed
+    let migrated=false;try{migrated=localStorage.getItem('crm_migrated')}catch(e){}
+    if(!migrated){
+      const ids=new Set(j.rows.map(r=>r.id));
+      COLS.forEach(c=>state[c].forEach(x=>{if(!String(x.id).startsWith('demo_')&&!ids.has(x.id)&&!outbox.some(o=>o.id===x.id))outbox.push({op:'put',col:c,id:x.id,doc:x})}));
+      try{localStorage.setItem('crm_migrated','1')}catch(e){}
+    }
+    // keep local changes that are still on their way
+    outbox.forEach(o=>{const arr=fresh[o.col];if(!arr)return;const i=arr.findIndex(x=>x.id===o.id);if(o.op==='del'){if(i>=0)arr.splice(i,1)}else{if(i>=0)arr[i]=o.doc;else arr.push(o.doc)}});
+    state.customers=fresh.customers;state.orders=fresh.orders;lsSave('customers');lsSave('orders');
+    syncState='ok';setBanner();render(true);
+    if(outbox.length){saveOutbox();flush()}
+  }catch(e){if(e.auth){logout();return}syncState='offline';setBanner();render(true)}
+}
+function logout(){setKey('');apiKey='';mode='loading';showLogin('קוד הכניסה לא נכון')}
+function showLogin(msg){
+  const el=document.createElement('div');el.id='login';el.className='login';
+  el.innerHTML=`<div class="login-in"><img class="logo" src="${$('.logo').src}" alt=""><h2>ניהול לקוחות</h2><p>הכניסו את קוד הכניסה</p>
+  <input id="lgCode" type="password" inputmode="numeric" autocomplete="current-password" placeholder="קוד כניסה"><div class="lg-err">${msg?esc(msg):''}</div>
+  <button class="btn gold" id="lgBtn">כניסה</button></div>`;
+  const old=$('#login');if(old)old.remove();document.body.appendChild(el);
+  const go_=async()=>{const k=$('#lgCode').value.trim();if(!k)return;$('#lgBtn').textContent='בודק…';apiKey=k;
+    try{await api({op:'list'});setKey(k);el.remove();startCloud(k)}catch(e){$('#lgBtn').textContent='כניסה';el.querySelector('.lg-err').textContent=e.auth?'הקוד לא נכון':'אין חיבור לאינטרנט – נסו שוב'}};
+  $('#lgBtn').onclick=go_;$('#lgCode').onkeydown=e=>{if(e.key==='Enter')go_()};
+}
+async function startCloud(k){
+  apiKey=k;mode='cloud';syncState='first';
+  await lsLoad();
+  try{const ob=await idbGet('crm_outbox');if(Array.isArray(ob))outbox=ob}catch(e){}
+  if(state.customers.length)syncState='ok';
+  setBanner();render();
+  await sync();
+  setInterval(()=>{if(!document.hidden)sync()},30000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
+  addEventListener('online',()=>sync());
+}
 async function initStorage(){
+  if(API_URL){const k=getKey();if(k)startCloud(k);else showLogin();return}
   setBanner();let fell=false;
   const fallback=()=>{if(fell||mode==='db')return;fell=true;mode='local';lsLoad().then(()=>{seedDemo();setBanner();render()});};
   const timer=setTimeout(fallback,10000);
@@ -293,6 +370,9 @@ function seedDemo(){
 function compress(file,max,q){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{let{width:w,height:h}=img;const s=Math.min(1,max/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(),'image/jpeg',q)};img.onerror=rej;img.src=u})}
 const blobToDataUrl=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
 async function storeImage(file){
+  if(mode==='cloud'){const b=await compress(file,1600,.82);const d=await blobToDataUrl(b);
+    try{const r=await api({op:'image',data:d.split(',')[1],mime:'image/jpeg',name:'img-'+Date.now()+'.jpg'});return{assetId:r.id,url:r.url,link:r.link}}
+    catch(e){throw new Error('צריך חיבור לאינטרנט כדי להעלות תמונה')}}
   if(assets){const b=await compress(file,1800,.85);const r=await assets.upload(b);return{assetId:r.id,url:r.url}}
   const b=await compress(file,900,.7);return{url:await blobToDataUrl(b)};
 }
@@ -430,7 +510,7 @@ async function pickImg(inp){
   const f=inp.files[0];if(!f)return;const key=inp.closest('.imgbox').dataset.key;
   collectOrder();toast('מעלה תמונה…');
   try{const im=await storeImage(f);if(key==='campaign')editing.campaignImg=im;else editing.payments[+key.slice(3)].img=im;const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y;toast('התמונה נוספה – לא לשכוח לשמור')}
-  catch(e){console.error(e);toast('העלאת התמונה נכשלה')}
+  catch(e){console.error(e);toast(e.message&&e.message.includes('אינטרנט')?e.message:'העלאת התמונה נכשלה')}
 }
 
 /* ===== views ===== */
@@ -532,9 +612,10 @@ function vSum(){
 
   <div class="card"><h2>כל התשלומים בתקופה <span class="pill p-brand">${rows.length}</span></h2>${rows.length?`<div class="tbl-wrap"><table style="min-width:520px"><tr><th>תאריך</th><th>לקוח</th><th>עסק</th><th>סכום</th><th>מע״מ</th><th>אמצעי</th></tr>${rows.map(({p,o})=>{const c=custById(o.customerId)||{};const mo=money(o);const v=mo.due?r2((+p.amount||0)*mo.vat/mo.due):0;return`<tr class="click" onclick="openOrder('${o.id}')"><td>${fd(p.date)}</td><td>${esc(c.num)} · ${esc(c.name||'')}</td><td>${chPill(o)}</td><td>${M(p.amount)}</td><td>${v?M(v):'—'}</td><td>${esc(p.method||'')}</td></tr>`}).join('')}</table></div>`:'<div class="empty">אין תשלומים בתקופה הזו</div>'}</div>
   <div class="card"><h2>גיבוי הנתונים</h2>
-    <div class="meta-s" style="margin-top:0">הנתונים שמורים בטלפון הזה. מומלץ לגבות פעם בשבוע ולשמור את הקובץ בוואטסאפ לעצמך או ב־Drive.</div>
+    <div class="meta-s" style="margin-top:0">${mode==='cloud'?'הנתונים נשמרים ב־Google Drive ומשותפים לכל מי שנכנס עם הקוד. אפשר גם לשמור עותק לקובץ.':'הנתונים שמורים בטלפון הזה. מומלץ לגבות פעם בשבוע ולשמור את הקובץ בוואטסאפ לעצמך או ב־Drive.'}</div>
     <button class="btn" onclick="backup()">שמירת גיבוי לקובץ</button>
     <button class="btn sec" onclick="$('#restoreIn').click()">שחזור מקובץ גיבוי</button><input type="file" id="restoreIn" accept=".json,application/json" style="display:none" onchange="restore(this)">
+    ${mode==='cloud'?`<button class="btn sec" onclick="sync().then(()=>toast('עודכן ✓'))">רענון עכשיו</button><button class="btn danger" onclick="confirmBox('להתנתק מהטלפון הזה?',()=>{setKey('');location.reload()});$('#yesBtn').textContent='כן, להתנתק'">התנתקות</button>`:''}
     ${state.customers.some(c=>String(c.id).startsWith('demo_'))?'<button class="btn danger" onclick="clearDemo()">מחיקת לקוחות הדוגמה</button>':''}
   </div>
   <p class="meta-s" style="text-align:center">מע״מ מחושב לפי 18%. החישובים הם לעזרה בלבד – לבדיקה מול רואה החשבון.</p>`;
@@ -547,7 +628,7 @@ async function backup(){
 }
 function restore(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.customers)||!Array.isArray(d.orders))throw 0;
   confirmBox('לשחזר את הגיבוי? ('+d.customers.length+' לקוחות, '+d.orders.length+' הזמנות) – הנתונים הנוכחיים יוחלפו',async()=>{
-    if(mode==='db'){for(const c of d.customers)await saveDoc('customers',c);for(const o of d.orders)await saveDoc('orders',o)}
+    if(mode==='db'||mode==='cloud'){for(const c of d.customers)await saveDoc('customers',c);for(const o of d.orders)await saveDoc('orders',o)}
     else{state.customers=d.customers;state.orders=d.orders;lsSave('customers');lsSave('orders');render()}
     toast('הגיבוי שוחזר ✓')});
   $('#yesBtn').textContent='כן, לשחזר'}catch(e){toast('הקובץ לא תקין')}};r.readAsText(f);inp.value=''}
