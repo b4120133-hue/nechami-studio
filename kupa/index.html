@@ -185,6 +185,16 @@ nav button{font-size:11px}
 .login p{margin:0 0 14px;opacity:.85}
 .login input{text-align:center;font-size:22px;letter-spacing:4px;border:1.5px solid var(--gold);background:rgba(255,255,255,.96)}
 .lg-err{min-height:22px;margin-top:8px;color:#ffb4a8;font-weight:600}
+.leftbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:14px 0 4px;padding:14px 16px;border-radius:16px;color:#fff;border:1px solid var(--gold);
+background:radial-gradient(circle at 0% 0%,rgba(243,220,146,.25),transparent 50%),linear-gradient(160deg,var(--p6),var(--p8));box-shadow:inset 0 0 0 3px rgba(255,255,255,.04),inset 0 0 0 4px rgba(201,162,74,.35),0 6px 16px rgba(42,16,73,.25)}
+.leftbar span{color:var(--gold-l);font-weight:700;display:block}.leftbar small{display:block;font-size:12px;opacity:.75;color:#fff}
+.leftbar b{font-family:var(--fh);font-size:26px;font-weight:900;background:var(--goldg);-webkit-background-clip:text;background-clip:text;color:transparent}
+.vatbox.profit small{display:block;font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.vatbox b.bad{color:var(--bad)}
+.vatbox b{white-space:nowrap;flex:none}.vatbox>div{gap:10px}
+.p-agent{background:var(--goldg);color:var(--p8);border-color:#b8862f}.p-left{background:#fff;color:var(--ok);border-color:#bfe0cb}
+.agent-sw{border-color:var(--gold);background:linear-gradient(180deg,#fffaf0,#fbf1d9)}
+.exp{background:#fff;border:1px solid var(--goldline);border-radius:14px;padding:4px 12px 12px;margin:10px 0}
 </style>
 </head>
 <body>
@@ -230,8 +240,8 @@ const chPill=o=>o.channel&&CH[o.channel]?`<span class="pill ${CH[o.channel].cls}
 const PAY_METHODS=['העברה בנקאית','ביט','פייבוקס','פייפאל','מזומן','אשראי','צ׳ק'];
 
 /* ===== storage: shared cloud db if available, else this browser ===== */
-const COLS=['customers','orders'];
-const state={customers:[],orders:[]};
+const COLS=['customers','orders','settings'];
+const state={customers:[],orders:[],settings:[]};
 let db=null,assets=null,mode='loading';
 function snapToArr(snap){
   const arr=Array.isArray(snap)?snap:(snap&&(snap.docs||snap.items||snap.rows))||[];
@@ -297,7 +307,7 @@ async function sync(){
   try{
     await flush();
     const j=await api({op:'list'});
-    const fresh={customers:[],orders:[]};
+    const fresh={customers:[],orders:[],settings:[]};
     j.rows.forEach(r=>{if(!fresh[r.col])return;try{fresh[r.col].push(Object.assign(JSON.parse(r.json),{id:r.id}))}catch(e){}});
     // first time on this phone: send up anything typed before the shared storage existed
     let migrated=false;try{migrated=localStorage.getItem('crm_migrated')}catch(e){}
@@ -308,7 +318,7 @@ async function sync(){
     }
     // keep local changes that are still on their way
     outbox.forEach(o=>{const arr=fresh[o.col];if(!arr)return;const i=arr.findIndex(x=>x.id===o.id);if(o.op==='del'){if(i>=0)arr.splice(i,1)}else{if(i>=0)arr[i]=o.doc;else arr.push(o.doc)}});
-    state.customers=fresh.customers;state.orders=fresh.orders;lsSave('customers');lsSave('orders');
+    state.customers=fresh.customers;state.orders=fresh.orders;state.settings=fresh.settings;lsSave('customers');lsSave('orders');lsSave('settings');
     syncState='ok';setBanner();render(true);
     if(outbox.length){saveOutbox();flush()}
   }catch(e){if(e.auth){logout();return}syncState='offline';setBanner();render(true)}
@@ -392,6 +402,27 @@ const balOf=o=>Math.max(0,r2(dueOf(o)-paidOf(o)));
 function payStatus(o){const a=dueOf(o),p=paidOf(o);if(a<=0&&p<=0)return['p-mut','לא נקבע סכום'];if(p>=a&&a>0)return['p-ok','שולם'];if(p>0)return['p-warn','שולם חלקית'];return['p-bad','לא שולם']}
 function pubStatus(o){if(o.publishedDate)return['p-ok','פורסם '+fd(o.publishedDate)];if(o.plannedDate&&o.plannedDate<today())return['p-bad','באיחור · '+fd(o.plannedDate)];if(o.plannedDate)return['p-warn','מתוכנן '+fd(o.plannedDate)];return['p-mut','ממתין לתאריך']}
 const pill=([c,t])=>`<span class="pill ${c}">${esc(t)}</span>`;
+/* ===== agent & profit ===== */
+const AG_DEF={id:'agent',name:'הסוכנת',low:5000,high:8000,threshold:20000,pct:15,start:today().slice(0,7)};
+function agentCfg(){return Object.assign({},AG_DEF,state.settings.find(x=>x.id==='agent')||{})}
+const monthOf=o=>(o.orderDate||'').slice(0,7);
+const expOf=o=>(o.expenses||[]).reduce((t,e)=>t+(+e.amount||0),0);
+function agentMonth(m,orders){ // orders = all orders (optionally with one replaced while editing)
+  const a=agentCfg();const os=(orders||state.orders).filter(o=>o.viaAgent&&monthOf(o)===m);
+  const base=os.reduce((t,o)=>t+money(o).net,0);
+  const active=m>=a.start;
+  const retainer=active?(base>a.threshold?a.high:a.low):0;
+  const commission=os.reduce((t,o)=>t+money(o).net*a.pct/100,0);
+  return{m,os,base,retainer,commission:r2(commission),total:r2(retainer+commission),high:base>a.threshold};
+}
+function profitOf(o,orders){
+  const a=agentCfg(),net=money(o).net,exp=expOf(o);
+  let com=0,share=0,am=null;
+  if(o.viaAgent){am=agentMonth(monthOf(o),orders);com=r2(net*a.pct/100);share=am.base?r2(am.retainer*net/am.base):0}
+  return{net,com,share,exp,left:r2(net-com-share-exp),am};
+}
+const leftOf=o=>profitOf(o).left;
+function leftBar(label,amount,sub){return `<div class="leftbar"><div><span>${label}</span>${sub?`<small>${sub}</small>`:''}</div><b class="money">${ILS(amount)}</b></div>`}
 function custStats(cid){const os=state.orders.filter(o=>o.customerId===cid);return{os,debt:os.reduce((t,o)=>t+balOf(o),0),pend:os.filter(o=>!o.publishedDate).length,total:os.reduce((t,o)=>t+dueOf(o),0)}}
 const nextNum=()=>state.customers.reduce((m,c)=>Math.max(m,+c.num||0),0)+1;
 
@@ -443,7 +474,7 @@ function openCustomerForm(id){
 let editing=null;
 function openOrder(id,cid){
   const o=id?JSON.parse(JSON.stringify(state.orders.find(x=>x.id===id))):{customerId:cid,channel:(custById(cid)||{}).defCh||'',orderDate:today(),payments:[],invoice:{}};
-  o.invoice=o.invoice||{};o.payments=o.payments||[];
+  o.invoice=o.invoice||{};o.payments=o.payments||[];o.expenses=o.expenses||[];
   editing=o;renderOrderForm();
 }
 function collectOrder(){
@@ -451,6 +482,8 @@ function collectOrder(){
   o.customerId=$('#oCust').value;o.orderDate=$('#oDate').value;o.title=$('#oTitle').value.trim();o.details=$('#oDetails').value.trim();
   o.amount=parseFloat($('#oAmount').value)||0;o.vatIncl=!!($('#oVatIncl')&&$('#oVatIncl').checked);o.plannedDate=$('#oPlanned').value;o.publishedDate=$('#oPublished').value;o.notes=$('#oNotes').value.trim();
   if($('#iIssued'))o.invoice={...o.invoice,issued:$('#iIssued').checked,date:$('#iDate').value,number:$('#iNum').value.trim(),link:$('#iLink').value.trim()};
+  o.viaAgent=!!($('#oAgent')&&$('#oAgent').checked);
+  (o.expenses||[]).forEach((x,i)=>{x.desc=$('#xD'+i).value.trim();x.amount=parseFloat($('#xA'+i).value)||0;x.date=$('#xT'+i).value});
   o.payments.forEach((p,i)=>{p.amount=parseFloat($('#pA'+i).value)||0;p.date=$('#pD'+i).value;p.method=$('#pM'+i).value;p.account=$('#pAc'+i).value.trim();p.ref=$('#pR'+i).value.trim();p.note=$('#pN'+i).value.trim()});
 }
 function renderOrderForm(){
@@ -473,6 +506,7 @@ function renderOrderForm(){
   <div><label>מתי הפרסום עלה בפועל</label><input type="date" id="oPublished" value="${o.publishedDate||''}"></div></div>
   <button class="btn sm sec" type="button" style="margin-top:8px" onclick="$('#oPublished').value=today()">עלה היום ✓</button>
   <label>תמונת הקמפיין</label>${imgBox('campaign',o.campaignImg,'הוספת תמונת קמפיין')}
+  <div class="switch agent-sw"><span>✦ הפרסום הגיע דרך ${esc(agentCfg().name)}</span><input type="checkbox" id="oAgent" ${o.viaAgent?'checked':''} onchange="chChange(editing.channel)"></div>
 
   ${o.channel==='cash'?`<div class="sec-title">מסמך</div><div class="note-box">תשלום במזומן – בלי חשבונית ובלי מע״מ</div>`:`<div class="sec-title">${ch?ch.doc:'חשבונית / קבלה'}</div>
   <div class="switch"><span>הוצאה ${ch?ch.doc:'חשבונית'}</span><input type="checkbox" id="iIssued" ${o.invoice.issued?'checked':''}></div>
@@ -493,15 +527,37 @@ function renderOrderForm(){
     <label>תמונת אסמכתא</label>${imgBox('pay'+i,p.img,'הוספת צילום אסמכתא')}</div>`).join('')}
   <button class="btn sec" type="button" onclick="addPay()">+ הוספת תשלום${bal>0?' (יתרה '+ILS(bal)+')':''}</button>
 
+  <div class="sec-title">הוצאות על הפרסום</div>
+  ${o.expenses.map((x,i)=>`<div class="exp"><div class="row"><div style="flex:2"><label>על מה</label><input id="xD${i}" value="${esc(x.desc||'')}" placeholder="נסיעה, צילום…" list="expList"></div><div><label>סכום (₪)</label><input id="xA${i}" type="number" inputmode="decimal" value="${x.amount||''}"></div></div><div class="row" style="align-items:flex-end"><div><label>תאריך</label><input id="xT${i}" type="date" value="${x.date||''}"></div><div style="flex:0 0 auto"><button class="btn sm danger" type="button" onclick="removeExp(${i})">הסרה</button></div></div></div>`).join('')}
+  <datalist id="expList"><option value="נסיעה"><option value="דלק"><option value="חניה"><option value="צילום"><option value="עריכה"><option value="הדפסה"></datalist>
+  <button class="btn sec" type="button" onclick="addExp()">+ הוספת הוצאה</button>
+
+  <div class="sec-title">כמה נשאר לנחמי מהפרסום</div>
+  <div id="profitBox">${profitHtml(o)}</div>
+
   <div class="sec-title">הערות</div>
-  <textarea id="oNotes" rows="3" placeholder="כל דבר נוסף שחשוב לזכור">${esc(o.notes||'')}</textarea>
+  <textarea id="oNotes\" rows="3" placeholder="כל דבר נוסף שחשוב לזכור">${esc(o.notes||'')}</textarea>
 
   <button class="btn" id="oSave">שמירה</button>
   ${!isNew?'<button class="btn danger" id="oDel">מחיקת ההזמנה</button>':''}`);
-  vatLive();$('#oSave').onclick=async()=>{collectOrder();if(!o.channel){toast('צריך לבחור דרך איזה עסק משלם');$('#sheet').scrollTop=0;return}if(!o.title){toast('צריך לכתוב מה הפרסום');return}if(!o.customerId){toast('צריך לבחור לקוח');return}o.createdAt=o.createdAt||Date.now();await saveDoc('orders',o);closeSheet();toast('ההזמנה נשמרה ✓')};
+  vatLive();$('#sheet').oninput=e=>{if(e.target.matches('#oAmount,#oDate,[id^=xA]'))refreshProfit()};$('#sheet').onchange=e=>{if(e.target.matches('#oDate,#oVatIncl'))refreshProfit()};$('#oSave').onclick=async()=>{collectOrder();if(!o.channel){toast('צריך לבחור דרך איזה עסק משלם');$('#sheet').scrollTop=0;return}if(!o.title){toast('צריך לכתוב מה הפרסום');return}if(!o.customerId){toast('צריך לבחור לקוח');return}o.createdAt=o.createdAt||Date.now();await saveDoc('orders',o);closeSheet();toast('ההזמנה נשמרה ✓')};
   if(!isNew)$('#oDel').onclick=()=>confirmBox('למחוק את ההזמנה "'+(o.title||'')+'"?',()=>{delDoc('orders',o.id);toast('נמחק')});
 }
 function addPay(){collectOrder();const bal=Math.max(0,r2(dueOf(editing)-paidOf(editing)));editing.payments.push({amount:bal||'',date:today(),method:editing.channel==='cash'?'מזומן':'העברה בנקאית',account:CH[editing.channel]?CH[editing.channel].acc:''});const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y+200}
+function profitHtml(o){
+  const others=state.orders.filter(x=>x.id!==o.id).concat([o]);
+  const p=profitOf(o,others),a=agentCfg();
+  return `<div class="vatbox profit">
+    <div><span>סכום הפרסום${o.channel==='murshe'?' (לפני מע״מ)':''}</span><b class="money">${ILS(p.net)}</b></div>
+    ${o.viaAgent?`<div><span>עמלת ${esc(a.name)} ${a.pct}%</span><b class="money bad">−${ILS(p.com)}</b></div>
+    <div><span>חלק מהרנטה החודשית<small>${p.am&&p.am.base?`${ILS(p.am.retainer)} בחודש ${p.am.m.split('-').reverse().join('/')} · מתחלק לפי ${p.am.os.length} פרסומים של ${ILS(p.am.base)}`:''}${p.am&&p.am.retainer===0?' · לפני תחילת העבודה עם הסוכנת':''}</small></span><b class="money bad">−${ILS(p.share)}</b></div>`:''}
+    ${p.exp?`<div><span>הוצאות</span><b class="money bad">−${ILS(p.exp)}</b></div>`:''}
+    <div class="tot"><span>נשאר לנחמי</span><b class="money">${ILS(p.left)}</b></div></div>
+    ${o.viaAgent?'<div class="meta-s">החלק מהרנטה מתעדכן לבד כשנוספות עוד הזמנות של הסוכנת באותו חודש</div>':''}`;
+}
+function refreshProfit(){if(!editing||!$('#profitBox'))return;collectOrder();$('#profitBox').innerHTML=profitHtml(editing)}
+function addExp(){collectOrder();editing.expenses.push({desc:'',amount:'',date:today()});const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y+120}
+function removeExp(i){collectOrder();editing.expenses.splice(i,1);const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y}
 function chChange(k){collectOrder();editing.channel=k;const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y}
 function vatLive(){const b=$('#vatBox');if(!b)return;const a=parseFloat($('#oAmount').value)||0;const m=money({channel:'murshe',amount:a,vatIncl:$('#oVatIncl').checked});b.innerHTML=`<div><span>לפני מע״מ</span><b class="money">${ILS(m.net)}</b></div><div><span>מע״מ 18%</span><b class="money">${ILS(m.vat)}</b></div><div class="tot"><span>סה״כ לתשלום</span><b class="money">${ILS(m.due)}</b></div>`}
 function removePay(i){collectOrder();editing.payments.splice(i,1);const y=$('#sheet').scrollTop;renderOrderForm();$('#sheet').scrollTop=y}
@@ -518,7 +574,7 @@ function orderCard(o,showCust){
   const c=custById(o.customerId)||{};const bal=balOf(o);
   return `<div class="ord" onclick="openOrder('${o.id}')"><div class="top"><div><b>${esc(o.title||'ללא כותרת')}</b>${showCust?`<div class="meta">${esc(c.num)} · ${esc(c.name||'')}</div>`:''}</div><div style="text-align:left" class="amt">${M(dueOf(o))}${o.channel==='murshe'?'<div class="meta" style="font-family:var(--fb);font-weight:400">כולל מע״מ</div>':''}${bal>0&&paidOf(o)>0?`<div class="meta bad">יתרה ${ILS(bal)}</div>`:''}</div></div>
   <div class="meta">הוזמן ${fd(o.orderDate)}${o.channel==='cash'?'':(o.invoice&&o.invoice.issued?' · '+(CH[o.channel]?CH[o.channel].doc:'מסמך')+' '+(o.invoice.number?'#'+esc(o.invoice.number):'')+(o.invoice.date?' '+fd(o.invoice.date):''):' · עוד לא הוצא'+(CH[o.channel]?'ה '+CH[o.channel].doc:' מסמך'))}</div>
-  <div class="pills">${chPill(o)}${pill(pubStatus(o))}${pill(payStatus(o))}</div></div>`;
+  <div class="pills">${chPill(o)}${o.viaAgent?'<span class="pill p-agent">✦ סוכנת</span>':''}${pill(pubStatus(o))}${pill(payStatus(o))}<span class="pill p-left">נשאר ${ILS(leftOf(o))}</span></div></div>`;
 }
 function vCustomers(){
   const q=custQ.trim().toLowerCase();
@@ -536,8 +592,9 @@ function vCustomer(){
   ${ph||c.email?`<div class="contact">${ph?`<a href="tel:${esc(ph)}">📞 התקשרות</a><a href="${esc(wa)}" target="_blank" rel="noopener">💬 וואטסאפ</a>`:''}${c.email?`<a href="mailto:${esc(c.email)}">✉️ מייל</a>`:''}</div>`:''}</div>
   <div class="kpis"><div class="kpi"><div class="l">סה״כ הזמנות</div><div class="v">${M(s.total)}</div></div><div class="kpi"><div class="l">חוב פתוח</div><div class="v ${s.debt>0?'bad':'ok'}">${M(s.debt)}</div></div></div>
   <button class="btn gold" onclick="openOrder(null,'${c.id}')">✦ הזמנת פרסום חדשה</button>
-  <div class="card"><h2>הזמנות (${os.length})</h2>${os.length?`<div class="tbl-wrap"><table><tr><th>תאריך</th><th>הפרסום</th><th>סכום</th><th>עולה</th><th>עלה</th><th>תמונה</th><th>עסק</th><th>מסמך</th><th>תשלום</th><th>יתרה</th></tr>
-  ${os.map(o=>{const bal=balOf(o);return`<tr class="click" onclick="openOrder('${o.id}')"><td>${fd(o.orderDate)}</td><td style="white-space:normal;min-width:120px">${esc(o.title)}</td><td>${M(dueOf(o))}</td><td>${o.plannedDate?(!o.publishedDate&&o.plannedDate<today()?`<span class="over">${fd(o.plannedDate)}</span>`:fd(o.plannedDate)):'—'}</td><td>${o.publishedDate?`<span class="ok">✓ ${fd(o.publishedDate)}</span>`:'—'}</td><td>${o.campaignImg&&imgSrc(o.campaignImg)?`<img class="thumb" src="${esc(imgSrc(o.campaignImg))}" alt="">`:'—'}</td><td>${chPill(o)}</td><td>${o.channel==='cash'?'—':(o.invoice&&o.invoice.issued?'✓ '+fd(o.invoice.date):'<span class="bad">לא</span>')}</td><td>${pill(payStatus(o))}</td><td class="${bal>0?'bad':''}">${bal>0?M(bal):'—'}</td></tr>`}).join('')}</table></div>`:'<div class="empty">עוד אין הזמנות ללקוח הזה</div>'}</div>`;
+  <div class="card"><h2>הזמנות (${os.length})</h2>${os.length?`<div class="tbl-wrap"><table><tr><th>תאריך</th><th>הפרסום</th><th>סכום</th><th>עולה</th><th>עלה</th><th>תמונה</th><th>עסק</th><th>מסמך</th><th>תשלום</th><th>יתרה</th><th>סוכנת</th><th>הוצאות</th><th>נשאר לנחמי</th></tr>
+  ${os.map(o=>{const bal=balOf(o),pf=profitOf(o);return`<tr class="click" onclick="openOrder('${o.id}')"><td>${fd(o.orderDate)}</td><td style="white-space:normal;min-width:120px">${esc(o.title)}</td><td>${M(dueOf(o))}</td><td>${o.plannedDate?(!o.publishedDate&&o.plannedDate<today()?`<span class="over">${fd(o.plannedDate)}</span>`:fd(o.plannedDate)):'—'}</td><td>${o.publishedDate?`<span class="ok">✓ ${fd(o.publishedDate)}</span>`:'—'}</td><td>${o.campaignImg&&imgSrc(o.campaignImg)?`<img class="thumb" src="${esc(imgSrc(o.campaignImg))}" alt="">`:'—'}</td><td>${chPill(o)}</td><td>${o.channel==='cash'?'—':(o.invoice&&o.invoice.issued?'✓ '+fd(o.invoice.date):'<span class="bad">לא</span>')}</td><td>${pill(payStatus(o))}</td><td class="${bal>0?'bad':''}">${bal>0?M(bal):'—'}</td><td>${o.viaAgent?'<span class="pill p-agent">✦</span> '+M(pf.com+pf.share):'—'}</td><td>${pf.exp?M(pf.exp):'—'}</td><td><b class="money ok">${ILS(pf.left)}</b></td></tr>`}).join('')}</table></div>`:'<div class="empty">עוד אין הזמנות ללקוח הזה</div>'}</div>
+  ${os.length?leftBar('סה״כ נשאר לנחמי מהלקוח',os.reduce((t,o)=>t+leftOf(o),0),'אחרי סוכנת והוצאות, בלי מע״מ'):''}`;
 }
 function vPending(){
   const os=state.orders.filter(o=>!o.publishedDate).sort((a,b)=>(a.plannedDate||'9999').localeCompare(b.plannedDate||'9999'));
@@ -564,7 +621,7 @@ function vAll(){
   const F=[['all','הכל'],['unpaid','לא שולם'],['pending','לא פורסם'],['noinv','בלי מסמך']];
   return `<input class="search" id="allQ" placeholder="חיפוש לפי פרסום או לקוח" value="${esc(allQ)}">
   <div class="seg">${F.map(([k,l])=>`<button class="${k===allFilter?'on':''}" onclick="allFilter='${k}';render()">${l}</button>`).join('')}</div>
-  <div class="card"><h2>${os.length} הזמנות <span class="money">${ILS(os.reduce((t,o)=>t+dueOf(o),0))}</span></h2>${os.length?os.map(o=>orderCard(o,true)).join(''):'<div class="empty">אין הזמנות</div>'}</div>`;
+  <div class="card"><h2>${os.length} הזמנות <span class="money">${ILS(os.reduce((t,o)=>t+dueOf(o),0))}</span></h2>${os.length?os.map(o=>orderCard(o,true)).join(''):'<div class="empty">אין הזמנות</div>'}</div>${os.length?leftBar('נשאר לנחמי מההזמנות האלה',os.reduce((t,o)=>t+leftOf(o),0),'אחרי סוכנת והוצאות, בלי מע״מ'):''}`;
 }
 
 function sumRange(){
@@ -574,6 +631,39 @@ function sumRange(){
   else if(sumMode==='bi'){a=m%2?m:m-1;b=a+1;label=HM[a-1]+'–'+HM[b-1]+' '+y}
   else{a=1;b=12;label='שנת '+y}
   return{from:y+'-'+pad(a)+'-01',to:y+'-'+pad(b)+'-31',label,y};
+}
+function monthsBetween(from,to){const out=[];let [y,m]=from.slice(0,7).split('-').map(Number);const [y2,m2]=to.slice(0,7).split('-').map(Number);while(y<y2||(y===y2&&m<=m2)){out.push(y+'-'+pad(m));m++;if(m>12){m=1;y++}}return out}
+function agentProfitHtml(from,to,label){
+  const a=agentCfg(),cur=today().slice(0,7);
+  const months=monthsBetween(from,to).filter(m=>m<=cur);
+  const am=months.map(m=>agentMonth(m));
+  const os=state.orders.filter(o=>o.orderDate&&o.orderDate>=from&&o.orderDate<=to);
+  const net=os.reduce((t,o)=>t+money(o).net,0),exp=os.reduce((t,o)=>t+expOf(o),0);
+  const agTot=am.reduce((t,x)=>t+x.total,0);
+  const idle=am.filter(x=>x.retainer&&!x.os.length).reduce((t,x)=>t+x.retainer,0);
+  const left=r2(net-agTot-exp);
+  return `<div class="card"><h2>✦ ${esc(a.name)} <button class="btn sm sec" onclick="openAgentSettings()">הגדרות</button></h2>
+    <div class="meta-s" style="margin-top:0">רנטה ${ILS(a.low)} בחודש, ו־${ILS(a.high)} בחודש שבו הפרסומים דרכה עוברים ${ILS(a.threshold)} · ועוד ${a.pct}% מכל פרסום דרכה · לפי תאריך ההזמנה, לפני מע״מ</div>
+    ${am.length?`<div class="tbl-wrap"><table style="min-width:480px"><tr><th>חודש</th><th>פרסומים דרכה</th><th>סכום</th><th>רנטה</th><th>${a.pct}%</th><th>מגיע לה</th></tr>${am.map(x=>`<tr><td>${x.m.split('-').reverse().join('/')}</td><td>${x.os.length}</td><td>${M(x.base)}</td><td>${M(x.retainer)}${x.high?' <span class="pill p-warn">מעל '+ILS(a.threshold)+'</span>':''}</td><td>${M(x.commission)}</td><td><b class="money">${ILS(x.total)}</b></td></tr>`).join('')}</table></div>`:'<div class="empty">אין נתונים לתקופה</div>'}
+    ${leftBar('סה״כ מגיע ל'+esc(a.name)+' · '+esc(label),agTot)}</div>
+  <div class="card"><h2>כמה נשאר לנחמי · ${esc(label)}</h2>
+    <div class="vatbox profit">
+      <div><span>פרסומים שהוזמנו בתקופה (לפני מע״מ)</span><b class="money">${ILS(net)}</b></div>
+      <div><span>${esc(a.name)} – רנטה ועמלות</span><b class="money bad">−${ILS(agTot)}</b></div>
+      ${idle?`<div><span><small>מתוכם רנטה בחודשים בלי פרסומים דרכה</small></span><b class="money" style="font-weight:400">${ILS(idle)}</b></div>`:''}
+      <div><span>הוצאות על פרסומים</span><b class="money bad">−${ILS(exp)}</b></div>
+      <div class="tot"><span>נשאר לנחמי</span><b class="money">${ILS(left)}</b></div></div>
+    <div class="meta-s">החישוב לפי תאריך ההזמנה, גם אם עוד לא שולם</div></div>`;
+}
+function openAgentSettings(){
+  const a=agentCfg();
+  openSheet(`<div class="sheet-head"><button class="x" onclick="closeSheet()">×</button><h3>הגדרות הסוכנת</h3></div>
+  <label>שם</label><input id="agN" value="${esc(a.name)}">
+  <div class="row"><div><label>רנטה רגילה (₪)</label><input id="agL" type="number" inputmode="decimal" value="${a.low}"></div><div><label>רנטה מוגדלת (₪)</label><input id="agH" type="number" inputmode="decimal" value="${a.high}"></div></div>
+  <div class="row"><div><label>מעל כמה בחודש עוברים לרנטה המוגדלת (₪)</label><input id="agT" type="number" inputmode="decimal" value="${a.threshold}"></div><div><label>אחוז עמלה</label><input id="agP" type="number" inputmode="decimal" value="${a.pct}"></div></div>
+  <label>מאיזה חודש היא עובדת (מתחילים לספור רנטה)</label><input id="agS" type="month" value="${a.start}">
+  <button class="btn" id="agSave">שמירה</button>`);
+  $('#agSave').onclick=()=>{saveDoc('settings',{...a,id:'agent',name:$('#agN').value.trim()||'הסוכנת',low:+$('#agL').value||0,high:+$('#agH').value||0,threshold:+$('#agT').value||0,pct:+$('#agP').value||0,start:$('#agS').value||a.start});closeSheet();toast('נשמר ✓')};
 }
 function vSum(){
   const {from,to,label,y}=sumRange();
@@ -611,6 +701,7 @@ function vSum(){
   ${per[''].got?`<div class="banner">${ILS(per[''].got)} התקבלו על הזמנות שלא נבחר להן עסק – כדאי לעדכן אותן</div>`:''}
 
   <div class="card"><h2>כל התשלומים בתקופה <span class="pill p-brand">${rows.length}</span></h2>${rows.length?`<div class="tbl-wrap"><table style="min-width:520px"><tr><th>תאריך</th><th>לקוח</th><th>עסק</th><th>סכום</th><th>מע״מ</th><th>אמצעי</th></tr>${rows.map(({p,o})=>{const c=custById(o.customerId)||{};const mo=money(o);const v=mo.due?r2((+p.amount||0)*mo.vat/mo.due):0;return`<tr class="click" onclick="openOrder('${o.id}')"><td>${fd(p.date)}</td><td>${esc(c.num)} · ${esc(c.name||'')}</td><td>${chPill(o)}</td><td>${M(p.amount)}</td><td>${v?M(v):'—'}</td><td>${esc(p.method||'')}</td></tr>`}).join('')}</table></div>`:'<div class="empty">אין תשלומים בתקופה הזו</div>'}</div>
+  ${agentProfitHtml(from,to,label)}
   <div class="card"><h2>גיבוי הנתונים</h2>
     <div class="meta-s" style="margin-top:0">${mode==='cloud'?'הנתונים נשמרים ב־Google Drive ומשותפים לכל מי שנכנס עם הקוד. אפשר גם לשמור עותק לקובץ.':'הנתונים שמורים בטלפון הזה. מומלץ לגבות פעם בשבוע ולשמור את הקובץ בוואטסאפ לעצמך או ב־Drive.'}</div>
     <button class="btn" onclick="backup()">שמירת גיבוי לקובץ</button>
