@@ -192,7 +192,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 42</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 43</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -335,6 +335,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
                 <input type="range" id="rsIn" min="0" max="10" step="0.1" value="0">
                 <label class="note" for="rsOut">איפה לסיים (בזמן הסרטון): <b id="rsOutTxt"></b></label>
                 <input type="range" id="rsOut" min="0" max="10" step="0.1" value="10">
+                <div id="rsVfx" class="opt-group"></div>
               </div>
               <label class="note" for="rAt">מתי מתחיל בסרטון: <b id="rAtTxt"></b></label>
               <input type="range" id="rAt" min="0" max="10" step="0.1" value="0">
@@ -1696,7 +1697,7 @@ function rowPanel(){
     const r=o.rate||1; ["rsIn","rsOut"].forEach(id=>$(id).max=(o.dur/r).toFixed(1)); $("rsIn").value=o.in/r; $("rsOut").value=o.out/r;
     $("rsInTxt").textContent=fmtS(o.in/r); $("rsOutTxt").textContent=fmtS(o.out/r)+(r!==1?` (מתוך ${fmtS(o.dur/r)})`:""); $("rsRate").value=Math.round(Math.log2(r)*100); $("rsRateTxt").textContent=rateLabel(r);
     $("rsLen").textContent=`${rLen(o).toFixed(1)} שניות בסרטון`;
-    $("rsPlay").textContent=sndPrev===o?"❚❚ עצירה":"▶ השמעה"; }
+    $("rsPlay").textContent=sndPrev===o?"❚❚ עצירה":"▶ השמעה"; vfxChips($("rsVfx"),o); }
   else { if (document.activeElement!==$("rtText")) $("rtText").value=o.text||""; $("rD").value=o.d; $("rDTxt").textContent=o.d.toFixed(1)+" שניות";
     const ob=$("rtOpts"); ob.innerHTML="";
     ["font","pos","size","color","box"].forEach(key=>{ const g=document.createElement("div"); g.className="opt-group"; const l=document.createElement("span"); l.className="note"; l.textContent=CAPOPTS[key].label; g.appendChild(l);
@@ -1990,7 +1991,7 @@ self.onmessage=async e=>{ const d=e.data; try{
   trWorker=new Worker(URL.createObjectURL(new Blob([code],{type:"text/javascript"})),{type:"module"});
   return trWorker;
 }
-async function bufOf(o){ if (o.buf) return o.buf; if (!o.blob) throw new Error("no audio");
+async function bufOf(o){ if (o.orig&&o.orig.buf) return o.orig.buf; if (o.buf) return o.buf; if (!o.blob) throw new Error("no audio");
   const ab=await o.blob.arrayBuffer(); o.buf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); return o.buf; }
 async function to16k(buf,from,to){ from=Math.max(0,from||0); to=Math.min(buf.duration,to==null?buf.duration:to); const len=Math.max(1600,Math.ceil((to-from)*16000));
   const oc=new OfflineAudioContext(1,len,16000), src=oc.createBufferSource(); src.buffer=buf; src.connect(oc.destination); src.start(0,from,Math.max(.1,to-from));
@@ -2237,15 +2238,88 @@ function takesBuild(){
     sr.addEventListener("input",()=>{ t.rate=rateFromSlider(+sr.value); if (takePlaying===t) t.el.playbackRate=t.rate; spt.textContent="מהירות דיבור: "+rateLabel(t.rate); len.textContent=`${takeLen(t).toFixed(1)} שניות`; });
     sr.addEventListener("change",()=>{ vBuild(); vPreview(); });
     spr.onclick=()=>{ t.rate=1; if (takePlaying===t) t.el.playbackRate=1; vBuild(); vPreview(); };
-    card.append(head,cv,ctr,l1,r1,l2,r2,sp); box.appendChild(card);
+    const vb=document.createElement("div"); vb.className="opt-group"; vfxChips(vb,t);
+    card.append(head,cv,ctr,l1,r1,l2,r2,sp,vb); box.appendChild(card);
     requestAnimationFrame(()=>drawWave(cv,t,takePlaying===t?t.el.currentTime:null));
   });
 }
+/* ----- voice changer (runs on the phone, no internet) ----- */
+const VOX=[["","המקורי"],["kid_s","ילדה קטנה"],["kid","ילד / ילדה"],["young","צעיר / צעירה"],["old","מבוגר / מבוגרת"],["older","סבא / סבתא"],["man","קול גברי"],["woman","קול נשי"],["doll","בובה מצחיקה"],["robot","רובוט"],["phone","טלפון / רדיו"],["hall","הד של אולם"],["whisper","לחישה"]];
+const VOX_P={kid_s:{f:1.52,hs:3,hp:180},kid:{f:1.33,hs:2,hp:150},young:{f:1.12,hs:1},old:{f:.9,vib:[5.5,.012],trem:[5.5,.07],lp:6500},older:{f:.82,vib:[6,.022],trem:[6,.12],lp:5000},
+  man:{f:.76,ls:4},woman:{f:1.28,hs:1.5,hp:140},doll:{f:1.9,hs:2},robot:{robot:1},phone:{phone:1},hall:{hall:1},whisper:{whisper:1}};
+const VSR=24000;
+function vfxFFT(re,im,inv){ const n=re.length; for (let i=1,j=0;i<n;i++){ let b=n>>1; for (;j&b;b>>=1) j^=b; j^=b; if (i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; } }
+  for (let len=2;len<=n;len<<=1){ const a=(inv?2:-2)*Math.PI/len, wr=Math.cos(a), wi=Math.sin(a);
+    for (let i=0;i<n;i+=len){ let cr=1, ci=0; for (let k=0;k<len/2;k++){ const p=i+k, q=p+len/2, tr=re[q]*cr-im[q]*ci, ti=re[q]*ci+im[q]*cr;
+      re[q]=re[p]-tr; im[q]=im[p]-ti; re[p]+=tr; im[p]+=ti; const nr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=nr; } } }
+  if (inv) for (let i=0;i<n;i++){ re[i]/=n; im[i]/=n; } }
+const hann=N=>{ const w=new Float32Array(N); for (let i=0;i<N;i++) w[i]=.5-.5*Math.cos(2*Math.PI*i/N); return w; };
+/* stretch time without changing pitch (WSOLA) */
+function vfxStretch(x,a){ const N=720, Hs=N/2, Ha=Hs/a, tol=160, w=hann(N), L=Math.ceil(x.length*a)+N*2, y=new Float32Array(L), ws=new Float32Array(L);
+  let prev=0; for (let i=0;i<N&&i<x.length;i++){ y[i]+=x[i]*w[i]; ws[i]+=w[i]; }
+  for (let k=1;;k++){ const op=k*Hs, nom=Math.round(k*Ha); if (nom+tol+N>=x.length||op+N>=L) break; const nat=prev+Hs;
+    let best=nom, bc=-1e18; if (nat+N<x.length){ for (let d=-tol;d<=tol;d+=2){ const p=nom+d; if (p<0) continue; let c=0; for (let i=0;i<N;i+=4) c+=x[p+i]*x[nat+i]; if (c>bc){ bc=c; best=p; } } }
+    for (let i=0;i<N;i++){ y[op+i]+=x[best+i]*w[i]; ws[op+i]+=w[i]; } prev=best; }
+  for (let i=0;i<L;i++) if (ws[i]>1e-3) y[i]/=ws[i]; return y; }
+/* change pitch (and voice colour) by factor f, same length; vib = [Hz, depth] wobble for an older voice */
+function vfxPitch(x,f,vib){ const s=Math.abs(f-1)<.001&&!vib?x:vfxStretch(x,f), out=new Float32Array(x.length); let pos=0;
+  for (let i=0;i<out.length;i++){ const i0=Math.floor(pos), fr=pos-i0; if (i0+1>=s.length) break; out[i]=s[i0]*(1-fr)+s[i0+1]*fr;
+    pos+=f*(vib?1+vib[1]*Math.sin(2*Math.PI*vib[0]*i/VSR):1); } return out; }
+/* whisper: keep the words, throw away the voice; robot: flatten the voice to one buzzing note */
+function vfxSpectral(x,mode){ const N=512, H=mode==="robot"?200:128, w=hann(N), y=new Float32Array(x.length+N), ws=new Float32Array(x.length+N), re=new Float32Array(N), im=new Float32Array(N);
+  for (let p=0;p+N<x.length;p+=H){ for (let i=0;i<N;i++){ re[i]=x[p+i]*w[i]; im[i]=0; } vfxFFT(re,im,false);
+    for (let k=0;k<=N/2;k++){ const m=Math.hypot(re[k],im[k]), ph=mode==="robot"?0:Math.random()*2*Math.PI; re[k]=m*Math.cos(ph); im[k]=m*Math.sin(ph); if (k>0&&k<N/2){ re[N-k]=re[k]; im[N-k]=-im[k]; } }
+    im[0]=0; im[N/2]=0; vfxFFT(re,im,true); for (let i=0;i<N;i++){ y[p+i]+=re[i]*w[i]; ws[p+i]+=w[i]*w[i]; } }
+  const out=new Float32Array(x.length); for (let i=0;i<out.length;i++) out[i]=ws[i]>1e-3?y[i]/ws[i]:0; return out; }
+async function vfxRender(buf,key){ const P=VOX_P[key];
+  const len=Math.max(1,Math.ceil(buf.duration*VSR)); let oc=new OfflineAudioContext(1,len,VSR); let src=oc.createBufferSource(); src.buffer=buf; src.connect(oc.destination); src.start();
+  let x=(await oc.startRendering()).getChannelData(0).slice();
+  if (P.f) x=vfxPitch(x,P.f,P.vib); else if (P.vib) x=vfxPitch(x,1,P.vib);
+  if (P.robot) x=vfxSpectral(x,"robot"); if (P.whisper) x=vfxSpectral(x,"whisper");
+  if (P.trem) for (let i=0;i<x.length;i++) x[i]*=1-P.trem[1]*(.5+.5*Math.sin(2*Math.PI*P.trem[0]*i/VSR));
+  const b=new AudioBuffer({length:x.length,sampleRate:VSR,numberOfChannels:1}); b.copyToChannel(x,0);
+  oc=new OfflineAudioContext(1,x.length+(P.hall?Math.round(VSR*1.8):0),VSR); src=oc.createBufferSource(); src.buffer=b; let node=src;
+  const bq=(type,freq,gain,q)=>{ const f=oc.createBiquadFilter(); f.type=type; f.frequency.value=freq; if (gain!=null) f.gain.value=gain; if (q!=null) f.Q.value=q; node.connect(f); node=f; };
+  if (P.hp) bq("highpass",P.hp); if (P.hs) bq("highshelf",3800,P.hs); if (P.ls) bq("lowshelf",220,P.ls); if (P.lp) bq("lowpass",P.lp);
+  if (P.whisper){ bq("highpass",450); bq("highshelf",3000,4); }
+  if (P.phone){ bq("highpass",500,null,.9); bq("lowpass",3000,null,.9); bq("peaking",1600,5,1); const ws=oc.createWaveShaper(), cv=new Float32Array(1024); for (let i=0;i<1024;i++){ const v=i/511.5-1; cv[i]=Math.tanh(3*v)/Math.tanh(3); } ws.curve=cv; node.connect(ws); node=ws; }
+  if (P.hall){ const ir=oc.createBuffer(2,Math.round(VSR*1.8),VSR); for (let c=0;c<2;c++){ const d=ir.getChannelData(c); for (let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,3.2); }
+    const cv=oc.createConvolver(); cv.buffer=ir; const wet=oc.createGain(); wet.gain.value=.35; node.connect(cv); cv.connect(wet); wet.connect(oc.destination); }
+  node.connect(oc.destination); src.start();
+  const r=await oc.startRendering(), d=r.getChannelData(0); let pk=0; for (let i=0;i<d.length;i++) pk=Math.max(pk,Math.abs(d[i]));
+  const g=pk>0?Math.min(4,.95/pk):1; for (let i=0;i<d.length;i++) d[i]*=g;
+  return r; }
+function wavOf(buf){ const d=buf.getChannelData(0), n=d.length, ab=new ArrayBuffer(44+n*2), v=new DataView(ab), w=(o,s)=>{ for (let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVEfmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,buf.sampleRate,true); v.setUint32(28,buf.sampleRate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  for (let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,d[i])); v.setInt16(44+i*2,s<0?s*32768:s*32767,true); } return new Blob([ab],{type:"audio/wav"}); }
+let vfxBusy=false;
+async function vfxApply(o,key,note){
+  if (vfxBusy) return; if ((o.vfx||"")===key) return; vfxBusy=true;
+  try{
+    if (takePlaying===o) stopTakePreview(); if (typeof stopSndPrev==="function") stopSndPrev();
+    if (!o.orig){ if (o.vfx && o.obid){ const b=await tx("blobs","readonly",s=>s.get(PJ.cur+":"+o.obid)); if (b) o.orig={blob:b,bid:o.obid,buf:await loadAudio(b)}; } if (!o.orig) o.orig={blob:o.blob,bid:o.bid,buf:o.buf}; }
+    let blob, buf, bid;
+    if (!key){ blob=o.orig.blob; buf=o.orig.buf; bid=o.orig.bid; }
+    else { note&&(note.textContent="משנה את הקול… רגע"); await new Promise(r=>setTimeout(r,40)); buf=await vfxRender(o.orig.buf,key); blob=wavOf(buf); bid=null; }
+    if (o._vurl){ try{ URL.revokeObjectURL(o._vurl); }catch(e){} }
+    o.blob=blob; o.buf=buf; o.bid=bid; o.vfx=key; o.obid=key?(o.orig.bid||(o.orig.bid=uid())):null;
+    o.url=o._vurl=URL.createObjectURL(blob); if (o.el){ o.el.src=o.url; o.el.load(); }
+    o.peaks=takePeaks(buf,V.takes.indexOf(o)>=0?240:200); o.dur=buf.duration; o.out=Math.min(o.out,o.dur); o.in=Math.min(o.in,o.out-.3);
+    vBuild(); vPreview(); projTouch();
+    const n=VOX.find(v=>v[0]===key); $("vstatus").textContent=key?`הקול שונה ל"${n[1]}". אפשר להקשיב, לבחור סגנון אחר, או לחזור ל"המקורי".`:"הקול חזר למקורי.";
+    if (V.takes.indexOf(o)>=0) setTimeout(()=>playTake(o),80); else if (!$("vrow").hidden) setTimeout(()=>$("rsPlay").click(),80);
+  }catch(e){ $("vstatus").textContent="לא הצלחתי לשנות את הקול בהקלטה הזו. נסי שוב."; }
+  finally{ vfxBusy=false; }
+}
+function vfxChips(box,o){ box.innerHTML=""; const lab=document.createElement("span"); lab.className="label"; lab.textContent="🎭 שינוי קול"; box.appendChild(lab);
+  const ch=document.createElement("div"); ch.className="chips"; box.appendChild(ch);
+  chipGroup(ch,VOX,k=>(o.vfx||"")===k,k=>vfxApply(o,k));
+  const nt=document.createElement("p"); nt.className="note"; nt.textContent="לוחצים על סגנון, והקול משתנה ומתנגן מיד. ההקלטה המקורית נשמרת, ו\"המקורי\" מחזיר אותה."; box.appendChild(nt); }
 function voiceEnd(){ const tk=voiceTake(); let e=tk?V.voiceAt+takeLen(tk):0; V.sounds.forEach(sd=>{ if (sd.voice) e=Math.max(e,sd.at+(sd.out-sd.in)/(sd.rate||1)); }); return e; }
 function takeToTimeline(t){
   const el=new Audio(t.url); el.preload="auto"; el.preservesPitch=true;
   const n=V.sounds.filter(x=>x.voice).length+(voiceTake()?2:1);
-  const sd={url:t.url,el,buf:t.buf,blob:t.blob,dur:t.dur,in:t.in,out:t.out,rate:t.rate||1,at:Math.round(voiceEnd()*10)/10,vol:1,peaks:t.peaks,name:"הקלטה "+n,voice:true};
+  const sd={url:t.url,el,buf:t.buf,blob:t.blob,dur:t.dur,in:t.in,out:t.out,rate:t.rate||1,at:Math.round(voiceEnd()*10)/10,vol:1,peaks:t.peaks,name:"הקלטה "+n,voice:true,vfx:t.vfx||"",obid:t.obid||null,orig:t.orig?{blob:t.orig.blob,bid:t.orig.bid,buf:t.orig.buf}:null};
   V.sounds.push(sd); V.rsel={kind:"snd",i:V.sounds.length-1};
   const need=sd.at+(sd.out-sd.in)/sd.rate, have=vSum();
   $("vstatus").textContent=`ההקלטה נוספה לסרגל, מיד אחרי ההקלטה הקודמת (בשנייה ${sd.at.toFixed(1)}). אפשר לגרור אותה למקום אחר בשלב 4.`+(need>have+.5?` היא ממשיכה אחרי סוף התמונות: כדאי להוסיף או להאריך תמונות.`:"");
@@ -2525,8 +2599,8 @@ function tx(store,mode,fn){ return idb().then(d=>new Promise((res,rej)=>{ const 
 function blobOf(o){ if (!o.bid) o.bid=uid(); return o.blob; }
 function projState(){
   const cur=snap(), pool=[]; HIST.reg.forEach((o,id)=>{ if (!o.blob) return; blobOf(o);
-    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}); });
-  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate}; });
+    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,vfx:o.vfx||"",obid:o.vfx?o.obid:null,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}); });
+  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate,vfx:t.vfx||"",obid:t.vfx?t.obid:null}; });
   if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid(); if (V.tick2Blob && !V.tick2Bid){ V.tick2Bid=uid(); }
   return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step, tick2Bid:V.tick2Blob?V.tick2Bid:null};
 }
@@ -2539,6 +2613,7 @@ async function projSave(){
     const pid=PJ.cur, stt=projState();
     const toSave=[]; HIST.reg.forEach(o=>{ if (o.blob && o.bid && !PJ.saved.has(o.bid)) toSave.push([o.bid,o.blob]); });
     V.takes.forEach(t=>{ if (t.blob && !PJ.saved.has(t.bid)) toSave.push([t.bid,t.blob]); });
+    [...V.takes,...HIST.reg.values()].forEach(o=>{ if (o&&o.vfx&&o.orig&&o.orig.blob&&o.obid&&!PJ.saved.has(o.obid)) toSave.push([o.obid,o.orig.blob]); });
     if (V.tick2Blob && !PJ.saved.has(V.tick2Bid)) toSave.push([V.tick2Bid,V.tick2Blob]);
     if (V.ownMusicBlob && !PJ.saved.has(V.ownMusicBid)) toSave.push([V.ownMusicBid,V.ownMusicBlob]);
     for (const [bid,b] of toSave){ await tx("blobs","readwrite",s=>s.put(b,pid+":"+bid)); PJ.saved.add(bid); }
@@ -2588,17 +2663,17 @@ async function projOpen(id){
   try{
     vReset(); const S=JSON.parse(p.state); const getB=bid=>tx("blobs","readonly",s=>s.get(id+":"+bid));
     for (const o of S.pool){ const b=await getB(o.bid); if (!b) continue; let m;
-      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,buf,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}; }
+      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,buf,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice,vfx:o.vfx||"",obid:o.obid||null}; }
       else if (o.kind==="vid"){ m=await loadClip(b); Object.assign(m,{fx:o.fx,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate||1,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       else { m=await imgItem(b); Object.assign(m,{fx:o.fx,d:o.d,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       m.id=o.id; m.bid=o.bid; m.blob=b; HIST.reg.set(o.id,m); }
     HIST.seq=S.hist.seq||HIST.seq;
-    for (const t of S.takes){ const b=await getB(t.bid); if (b) await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); }
+    for (const t of S.takes){ const b=await getB(t.bid); if (b) { const tk=await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); if (tk){ tk.vfx=t.vfx||""; tk.obid=t.obid||null; } } }
     V.voiceIdx=S.voiceIdx<V.takes.length?S.voiceIdx:-1;
     if (S.tick2Bid){ const b=await getB(S.tick2Bid); if (b){ try{ await setT2Img(b,S.tick2Bid); }catch(e){} } }
     if (S.ownMusicBid){ const b=await getB(S.ownMusicBid); if (b){ try{ V.ownMusic=await loadAudio(b); V.ownMusicBlob=b; V.ownMusicBid=S.ownMusicBid; V.musicName=S.musicName; }catch(e){} } }
     const okList=(S.hist.list||[]).filter(str=>{ try{ const o=JSON.parse(str); return o.items.every(it=>HIST.reg.has(it[0])) && (o.sounds||[]).every(x=>HIST.reg.has(x[0])); }catch(e){ return false; } });
-    PJ.cur=id; PJ.name=p.name; PJ.created=p.created; PJ.saved=new Set([...S.pool.map(o=>o.bid),...S.takes.map(t=>t.bid)]); if (S.ownMusicBid) PJ.saved.add(S.ownMusicBid);
+    PJ.cur=id; PJ.name=p.name; PJ.created=p.created; PJ.saved=new Set([...S.pool.map(o=>o.bid),...S.takes.map(t=>t.bid),...S.pool.map(o=>o.obid).filter(Boolean),...S.takes.map(t=>t.obid).filter(Boolean)]); if (S.ownMusicBid) PJ.saved.add(S.ownMusicBid);
     HIST.lock=true; histRestore(S.cur); HIST.lock=false;
     HIST.list=okList.length?okList:[S.cur]; HIST.idx=Math.min(okList.length?S.hist.idx:0,HIST.list.length-1);
     V.voiceIdx=S.voiceIdx<V.takes.length?S.voiceIdx:-1; V.step=S.step||1;
