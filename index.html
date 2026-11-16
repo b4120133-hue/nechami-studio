@@ -192,7 +192,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 43</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 44</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -312,9 +312,10 @@ input[type=range]{width:100%;accent-color:var(--gold)}
               <label class="btn btn-ghost btn-small" for="sndFile">+ סאונד מקובץ</label>
               <label class="btn btn-ghost btn-small" for="sndRec">+ הקלטת סאונד</label>
               <button class="btn btn-ghost btn-small" id="txtAdd" type="button">+ טקסט על הסרטון</button>
-              <input class="hidden-input" type="file" id="sndFile" accept="audio/*">
+              <input class="hidden-input" type="file" id="sndFile" accept="audio/*" multiple>
               <input class="hidden-input" type="file" id="sndRec" accept="audio/*" capture>
             </div>
+            <label class="check" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sndChain"> <span>כל קובץ קול חדש מתחיל מיד בסוף הקודם</span></label>
             <div class="itemPanel" id="vrow" hidden>
               <div class="row" style="justify-content:space-between">
                 <span class="label" id="vrowTitle" style="margin:0"></span>
@@ -339,6 +340,12 @@ input[type=range]{width:100%;accent-color:var(--gold)}
               </div>
               <label class="note" for="rAt">מתי מתחיל בסרטון: <b id="rAtTxt"></b></label>
               <input type="range" id="rAt" min="0" max="10" step="0.1" value="0">
+              <div id="rNudge" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;direction:ltr">
+                <button class="btn btn-ghost btn-small" type="button" data-n="-3">−3</button><button class="btn btn-ghost btn-small" type="button" data-n="-2">−2</button><button class="btn btn-ghost btn-small" type="button" data-n="-1">−1</button><button class="btn btn-ghost btn-small" type="button" data-n="-0.5">−½</button>
+                <button class="btn btn-ghost btn-small" type="button" data-n="0.5">+½</button><button class="btn btn-ghost btn-small" type="button" data-n="1">+1</button><button class="btn btn-ghost btn-small" type="button" data-n="2">+2</button><button class="btn btn-ghost btn-small" type="button" data-n="3">+3</button>
+              </div>
+              <p class="note" id="rNudgeNote" style="margin:0">מינוס = מוקדם יותר (אפשר שייכנס על הקול הקודם), פלוס = מאוחר יותר. בשניות.</p>
+              <div class="row" id="rSnapRow"><button class="btn btn-ghost btn-small" id="rSnapPrev" type="button">⏮ להתחיל מיד בסוף הקודם</button></div>
               <div id="rDurRow" class="opt-group">
                 <label class="note" for="rD">כמה זמן על המסך: <b id="rDTxt"></b></label>
                 <input type="range" id="rD" min="0.5" max="30" step="0.1" value="3">
@@ -1690,9 +1697,9 @@ function rowPanel(){
   if (!o){ V.rsel=null; box.hidden=true; return; }
   box.hidden=false; const isS=sel.kind!=="txt";
   $("vrowTitle").textContent=sel.kind==="voice"?"ההקלטה הראשית":isS?(o.voice?o.name:"סאונד "+(sel.i+1)):"טקסט "+(sel.i+1);
-  $("vrowTxt").hidden=isS; $("vrowSnd").hidden=!isS; $("rDurRow").hidden=isS;
+  $("vrowTxt").hidden=isS; $("vrowSnd").hidden=!isS; $("rDurRow").hidden=isS; $("rSnapRow").hidden=!isS;
   $("rDel").textContent=sel.kind==="voice"?"להוציא מהסרטון":"מחיקה";
-  const M=Math.max(1,vSum()), at=rAtGet(o); $("rAt").max=M.toFixed(1); $("rAt").value=at; $("rAtTxt").textContent=fmtS(at)+" שניות";
+  const M=Math.max(1,vSum(),audEnd(null)+1,rAtGet(o)+1), at=rAtGet(o); $("rAt").max=M.toFixed(1); $("rAt").value=at; $("rAtTxt").textContent=fmtS(at)+" שניות";
   if (isS){ const vol=o.vol==null?1:o.vol; $("rsVol").value=Math.round(vol*100); $("rsVolTxt").textContent=Math.round(vol*100)+"%";
     const r=o.rate||1; ["rsIn","rsOut"].forEach(id=>$(id).max=(o.dur/r).toFixed(1)); $("rsIn").value=o.in/r; $("rsOut").value=o.out/r;
     $("rsInTxt").textContent=fmtS(o.in/r); $("rsOutTxt").textContent=fmtS(o.out/r)+(r!==1?` (מתוך ${fmtS(o.dur/r)})`:""); $("rsRate").value=Math.round(Math.log2(r)*100); $("rsRateTxt").textContent=rateLabel(r);
@@ -1728,12 +1735,30 @@ $("rsOut").addEventListener("input",e=>{ const o=rSnd(); if (!o) return; const r
 $("txtAdd").onclick=()=>{ const at=Math.max(0,Math.min(vSum()-.5,TL.scrub||0));
   V.texts.push({text:"",at:Math.round(at*10)/10,d:3,pos:"middle",size:"l",color:"white",box:"shadow",font:V.font}); V.rsel={kind:"txt",i:V.texts.length-1};
   vBuild(); vPreview(); setTimeout(()=>{ $("vrow").scrollIntoView({block:"nearest",behavior:"smooth"}); $("rtText").focus(); },60); };
-async function onSnd(e){ const f=e.target.files&&e.target.files[0]; e.target.value=""; if (!f) return;
-  try{ const buf=await loadAudio(f), url=URL.createObjectURL(f), el=new Audio(url); el.preload="auto";
-    const sd={url,el,dur:buf.duration,in:0,out:buf.duration,at:Math.round(Math.max(0,TL.scrub||0)*10)/10,vol:1,blob:f,peaks:takePeaks(buf,200),name:(f.name||"").replace(/\.[^.]+$/,"").slice(0,20)||"סאונד"};
-    V.sounds.push(sd); V.rsel={kind:"snd",i:V.sounds.length-1}; $("vstatus").textContent="הסאונד נוסף. גררי אותו בסרגל למקום שרוצים.";
-  }catch(err){ $("vstatus").textContent="לא הצלחתי לפתוח את קובץ הסאונד. נסי קובץ MP3 או M4A."; }
+/* where the sound rows end: the main recording and every sound, except the one we are moving */
+function audEnd(except){ let e=0; const tk=voiceTake(); if (tk && except!==tk) e=V.voiceAt+takeLen(tk);
+  V.sounds.forEach(sd=>{ if (sd!==except) e=Math.max(e,sd.at+rLen(sd)); }); return e; }
+function audPrevEnd(o){ const at=rAtGet(o); let best=null; const tk=voiceTake();
+  const items=[]; if (tk && o!==tk) items.push([V.voiceAt,V.voiceAt+takeLen(tk)]); V.sounds.forEach(sd=>{ if (sd!==o) items.push([sd.at,sd.at+rLen(sd)]); });
+  items.forEach(([s,e])=>{ if (s<at-.05 && (best==null||e>best)) best=e; });
+  if (best==null) items.forEach(([s,e])=>{ if (s<=at+.05 && (best==null||e>best)) best=e; });
+  return best==null?0:best; }
+let sndChain=true; try{ sndChain=localStorage.getItem("sndChain")!=="0"; }catch(e){}
+$("sndChain").checked=sndChain; $("sndChain").onchange=e=>{ sndChain=e.target.checked; try{ localStorage.setItem("sndChain",sndChain?"1":"0"); }catch(x){} };
+async function onSnd(e){ const files=[...(e.target.files||[])]; e.target.value=""; if (!files.length) return; let ok=0, last=null;
+  for (const f of files){
+    try{ const buf=await loadAudio(f), url=URL.createObjectURL(f), el=new Audio(url); el.preload="auto";
+      const at=sndChain&&(V.sounds.length||voiceTake())?audEnd(null):Math.max(0,TL.scrub||0);
+      const sd={url,el,dur:buf.duration,in:0,out:buf.duration,at:Math.round(at*10)/10,vol:1,blob:f,peaks:takePeaks(buf,200),name:(f.name||"").replace(/\.[^.]+$/,"").slice(0,20)||"סאונד"};
+      V.sounds.push(sd); V.rsel={kind:"snd",i:V.sounds.length-1}; ok++; last=sd;
+    }catch(err){ $("vstatus").textContent="לא הצלחתי לפתוח את קובץ הסאונד. נסי קובץ MP3 או M4A."; }
+  }
+  if (ok) $("vstatus").textContent=(ok>1?`נוספו ${ok} קבצי קול`:"הסאונד נוסף")+(sndChain?`, כל אחד מיד בסוף הקודם (האחרון מתחיל בשנייה ${last.at.toFixed(1)}).`:".")+" לכוונון: הכפתורים פלוס ומינוס מתחת לסרגל.";
   vBuild(); vPreview(); }
+function rMoveTo(v){ const o=rObj(); if (!o||!V.rsel||V.rsel.kind==="txt"&&false) return; v=Math.max(0,Math.round(v*10)/10); rAtSet(o,v); vBuild(); rowPanel(); vPreview();
+  $("vstatus").textContent=`מתחיל עכשיו בשנייה ${v.toFixed(1)}.`; }
+document.querySelectorAll("#rNudge [data-n]").forEach(b=>b.onclick=()=>{ const o=rObj(); if (!o) return; rMoveTo(rAtGet(o)+(+b.dataset.n)); });
+$("rSnapPrev").onclick=()=>{ const o=rObj(); if (!o) return; rMoveTo(audPrevEnd(o)); };
 $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("change",onSnd);
 /* drag for voice lane, sounds and texts */
 (function(){
