@@ -202,7 +202,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 53</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 54</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -317,6 +317,13 @@ input[type=range]{width:100%;accent-color:var(--gold)}
               <button class="btn btn-ghost btn-small" id="tlOut" type="button" aria-label="הקטנת הסרגל">−</button>
               <button class="btn btn-ghost btn-small" id="tlIn" type="button" aria-label="הגדלת הסרגל">+</button>
               <button class="btn btn-gold btn-small" id="tlSplit" type="button">✂️ פיצול</button>
+            </div>
+            <div class="row" id="tlNudge" style="justify-content:center;gap:6px;direction:ltr">
+              <button class="btn btn-ghost btn-small" type="button" data-d="-1" aria-label="שנייה אחורה">−1</button>
+              <button class="btn btn-ghost btn-small" type="button" data-d="-0.1" aria-label="עשירית שנייה אחורה">−0.1</button>
+              <b id="tlNow" style="min-width:74px;text-align:center;color:#ff7a7a;font-size:18px">—</b>
+              <button class="btn btn-ghost btn-small" type="button" data-d="0.1" aria-label="עשירית שנייה קדימה">+0.1</button>
+              <button class="btn btn-ghost btn-small" type="button" data-d="1" aria-label="שנייה קדימה">+1</button>
               <span class="note" id="tlTotal"></span>
             </div>
             <p class="note" id="tlSplitHint" style="margin:0">✂️ לפיצול: לוחצים על שורת המספרים למעלה כדי לשים את הקו האדום במקום החיתוך, מסמנים את מה שרוצים לחתוך (סרטון, תמונה, הקלטה או קול) ולוחצים ״פיצול״. כל חלק אפשר אחר כך למחוק, להנמיך או להשתיק לבד.</p>
@@ -1416,7 +1423,8 @@ let vRunning=false;
 function vTimeline(){
   let acc=0; return V.imgs.map(m=>{ const d=itemLen(m), o={m,start:acc,dur:d}; acc+=d; return o; });
 }
-function srcOf(m){ return (m.kind==="vid" && vRunning && m.el.readyState>=2) ? m.el : m.c; }
+let vScrubDraw=false, vNowT=0;
+function srcOf(m){ return (m.kind==="vid" && (vRunning||vScrubDraw) && m.el.readyState>=2) ? m.el : m.c; }
 function vSyncClips(tm,tl){
   tl.forEach((it,k)=>{ const m=it.m; if (m.kind!=="vid") return;
     const tr=Math.min(.8,(tl[k-1]?tl[k-1].dur:it.dur)*.35);
@@ -1829,18 +1837,32 @@ $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("cha
     if (d.type==="tap"){ const same=V.rsel&&V.rsel.kind===d.kind&&(d.kind==="voice"||V.rsel.i===d.i); V.rsel=same?null:{kind:d.kind,i:d.i}; if (!same) setTimeout(()=>$("vrow").scrollIntoView({block:"nearest",behavior:"smooth"}),60); }
     vBuild(); vPreviewAt2(d.o.at+.2); };
   window.addEventListener("pointerup",up); window.addEventListener("pointercancel",up);
-  { const ru=$("tlRuler"); let rd=false; const mv=e=>{ const r=inner.getBoundingClientRect(); TL.scrub=Math.max(0,Math.min(vTotal()-.01,(r.right-e.clientX)/TL.pps)); tlHeadShow(); if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vDrawPreview(TL.scrub); } };
+  { const ru=$("tlRuler"); let rd=false; const mv=e=>{ if (vRunning) return; const r=inner.getBoundingClientRect(); scrubTo((r.right-e.clientX)/TL.pps); };
     ru.addEventListener("pointerdown",e=>{ rd=true; try{ ru.setPointerCapture(e.pointerId); }catch(x){} mv(e); }); ru.addEventListener("pointermove",e=>{ if (rd) mv(e); }); ["pointerup","pointercancel"].forEach(n=>ru.addEventListener(n,()=>{ rd=false; })); ru.style.touchAction="none"; }
   $("tlRuler").addEventListener("click",e=>{ const r=inner.getBoundingClientRect(), t=Math.max(0,Math.min(vTotal()-.01,(r.right-e.clientX)/TL.pps)); TL.scrub=t;
     const hd=$("tlHead"); hd.hidden=false; hd.style.right=(t*TL.pps)+"px"; if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vDrawPreview(t); } });
 })();
+/* move the red line to second t, show the real video frame there, keep the line in view */
+function scrubTo(t){ t=Math.max(0,Math.min(vTotal()-.01,Math.round(t*100)/100)); TL.scrub=t; tlHeadShow();
+  const lab=$("tlNow"); if (lab) lab.textContent=t.toFixed(1)+" שנ׳";
+  const sc=$("tlScroll"); if (sc){ const x=t*TL.pps, w=sc.clientWidth, cur=-sc.scrollLeft; if (x<cur+30||x>cur+w-30) sc.scrollLeft=-Math.max(0,x-w/2); }
+  if (vBusy || !$("vout").hidden) return; if (!vBgC) vPrep();
+  const tl=vTimeline(), it=tl.find(x=>t>=x.start&&t<x.start+x.dur)||tl[tl.length-1];
+  const draw=()=>{ vScrubDraw=true; try{ vDrawPreview(t); }finally{ vScrubDraw=false; } };
+  if (it && it.m.kind==="vid"){ const m=it.m, want=m.in+Math.min(it.dur,Math.max(0,t-it.start))*(m.rate||1);
+    if (Math.abs(m.el.currentTime-want)<.02 && m.el.readyState>=2){ draw(); return; }
+    m.el.onseeked=()=>{ m.el.onseeked=null; if (TL.scrub===t) draw(); }; try{ m.el.currentTime=want; }catch(e){ draw(); } setTimeout(()=>{ if (TL.scrub===t) draw(); },400); }
+  else draw(); }
+document.querySelectorAll("#tlNudge [data-d]").forEach(b=>b.onclick=()=>{ if (vRunning) return; scrubTo((TL.scrub||0)+(+b.dataset.d)); });
 /* ----- split at the red line (like CapCut): videos, photos, the recording and sound rows ----- */
-function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
+function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; const lab=$("tlNow"); if (lab) lab.textContent=TL.scrub==null?"—":TL.scrub.toFixed(1)+" שנ׳"; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
 function sndSplitAt(o,t){ const r=o.rate||1, src=o.in+(t-o.at)*r; if (o.lock) return "lock"; if (!(src>o.in+.15&&src<o.out-.15)) return "edge";
   const n={...o}; ["node","gain","id","el","_vurl"].forEach(k=>delete n[k]); n.el=new Audio(o.url); n.el.preload="auto"; n.el.preservesPitch=true;
   n.in=src; n.at=Math.round(t*100)/100; o.out=src; if (o.name) n.name=o.name.replace(/ \(\d\)$/,"")+" (2)";
   V.sounds.splice(V.sounds.indexOf(o)+1,0,n); return n; }
-async function tlSplit(){ const st=$("vstatus"), t=TL.scrub;
+async function tlSplit(){ const st=$("vstatus");
+  if (vRunning||vBusy){ const t0=vNowT; vStopFlag=true; for (let i=0;i<60&&vBusy;i++) await new Promise(r=>setTimeout(r,50)); TL.scrub=t0; tlHeadShow(); }
+  const t=TL.scrub;
   if (t==null){ st.textContent="קודם לוחצים על שורת המספרים שמעל הסרגל, כדי לשים את הקו האדום במקום שרוצים לחתוך."; return; }
   const sel=V.rsel;
   if (sel && (sel.kind==="snd"||sel.kind==="voice")){
@@ -2756,9 +2778,10 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
     rec.ondataavailable=e=>{ if (e.data&&e.data.size) parts.push(e.data); };
   }
   const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.gain.cancelScheduledValues(0); sd.gain.gain.value=sd.vol==null?1:sd.vol; sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
-    if (!record){ vEndUI(); st.textContent=""; vPreview(); if (opts.onDone) opts.onDone(); return; }
+    const stoppedAt=vStopFlag?vNowT:null;
+    if (!record){ vEndUI(); st.textContent=""; if (stoppedAt!=null){ scrubTo(stoppedAt); st.textContent=`⏸ נעצר בשנייה ${stoppedAt.toFixed(1)}. אפשר לכוונן עם הכפתורים ולגזור.`; } else vPreview(); if (opts.onDone) opts.onDone(); return; }
     rec.onstop=async()=>{ tracks.forEach(t=>t.stop());
-      if (vStopFlag){ vEndUI(); st.textContent=opts.preview?"הצפייה נעצרה.":"היצירה הופסקה. העריכה נשמרה."; vPreview(); return; }
+      if (vStopFlag){ vEndUI(); if (stoppedAt!=null){ scrubTo(stoppedAt); st.textContent=`⏸ נעצר בשנייה ${stoppedAt.toFixed(1)}. אפשר לכוונן עם הכפתורים ולגזור.`; } else { st.textContent="היצירה הופסקה."; vPreview(); } return; }
       if (!opts.preview) st.textContent="מסיים את הקובץ…"; const fixed=await fixMp4(new Blob(parts,{type:rec.mimeType||mime||"video/webm"}));
       if (opts.preview){ vBlob=fixed; vBlobSig=sigAtStart; if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob); vEndUI(); vPreview(); st.textContent="✓ הסרטון מוכן. אם הכל טוב, לוחצים ״📤 שליחה לוואטסאפ״ והוא נפתח מיד."; return; }
       vBlob=fixed; vBlobSig=sigAtStart; if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
@@ -2767,7 +2790,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0); if (opts.onStart) opts.onStart(startPerf);
   vRunning=true;
   if (rec) rec.start(250);
-  const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000);
+  const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000); vNowT=Math.min(t,T);
     vFrame(vctx,Math.min(t,T-.001),chunks); $("vbarFill").style.width=Math.min(100,t/T*100)+"%";
     V.sounds.forEach(sd=>{ const want=sd.in+(t-sd.at)*(sd.rate||1); if (sd.el.playbackRate!==(sd.rate||1)){ sd.el.playbackRate=sd.rate||1; sd.el.preservesPitch=true; }
       if (t>=sd.at && want<sd.out-.02 && t<T && !vStopFlag){ if (sd.el.paused){ try{ sd.el.currentTime=want; }catch(e){} sd.el.play().catch(()=>{}); } else if (Math.abs(sd.el.currentTime-want)>.3){ try{ sd.el.currentTime=want; }catch(e){} } }
