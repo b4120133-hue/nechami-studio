@@ -198,7 +198,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 49</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 50</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1648,7 +1648,10 @@ function histButtons(){ $("vundo").disabled=HIST.idx<=0; $("vredo").disabled=HIS
 $("vundo").onclick=()=>{ HIST.last=0; histCommit();
   if (HIST.idx>0){ HIST.idx--; histRestore(HIST.list[HIST.idx]); $("vstatus").textContent="חזרתי שלב אחד אחורה."; } };
 $("vredo").onclick=()=>{ if (HIST.idx<HIST.list.length-1){ HIST.idx++; histRestore(HIST.list[HIST.idx]); $("vstatus").textContent="השינוי הוחזר."; } };
-let vHadFile=false;
+let vHadFile=false, vBlobSig=null;
+/* fingerprint of the whole edit: if it is the same as when the file was made, the file can be sent at once */
+function vSig(){ try{ return JSON.stringify([snap(),V.takes.map(t=>[t.bid,t.vfx||"",t.in,t.out,t.rate,t.dur]),V.sounds.map(x=>[x.bid||x.id,x.vfx||"",x.dur]),V.imgs.map(m=>m.bid||m.id),OUTRO]); }catch(e){ return String(Math.random()); } }
+const vFresh=()=>!!vBlob && vBlobSig!=null && vBlobSig===vSig();
 function vInvalidate(){
   const out=$("vout"); if (out.hidden) return;
   out.pause(); out.hidden=true; vcan.hidden=false;
@@ -2660,7 +2663,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   let music=null; try{ music=(ac&&!silent)?await getMusic(T):null; }catch(e){ music=null; }
   const tracks=record?[...vcan.captureStream(30).getVideoTracks()]:[]; let t0a=0; const srcs=[];
   if (ac){ const dest=record?ac.createMediaStreamDestination():null; t0a=ac.currentTime+.2;
-    const route=n=>{ if(dest) n.connect(dest); n.connect(ac.destination); };
+    const mute=!!opts.mute, route=n=>{ if(dest) n.connect(dest); if (!mute) n.connect(ac.destination); };
     const talk=speechZones(T), hasVoice=!!(voiceTake()||V.sounds.some(x=>x.voice));
     if (music){ const s=ac.createBufferSource(), g=ac.createGain(); s.buffer=music; s.loop=true;
       if (V.duck && hasVoice) duckAutomate(g.gain,t0a,T,V.vol,talk,true);
@@ -2668,13 +2671,13 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
       s.connect(g); route(g); s.start(t0a); s.stop(t0a+T+.2); srcs.push(s); }
     stopSndPrev(); V.sounds.forEach(sd=>{ takeNode(sd); if (sd.gain){ const gp=sd.gain.gain; gp.cancelScheduledValues(0);
       if (silent) gp.value=0; else if (V.duck && hasVoice && !sd.voice) duckAutomate(gp,t0a,T,sd.vol,talk,false); else gp.value=sd.vol;
-      if (dest) sd.gain.connect(dest); } });
-    const tk=silent?null:voiceTake(); if (tk){ stopTakePreview(); takeNode(tk); if (tk.gain) tk.gain.gain.value=tk.vol==null?1:tk.vol; if (tk.gain && dest) tk.gain.connect(dest); tk.el.playbackRate=tk.rate; tk.el.preservesPitch=true; }
+      if (mute){ try{ sd.gain.disconnect(); }catch(e){} } if (dest) sd.gain.connect(dest); } });
+    const tk=silent?null:voiceTake(); if (tk){ stopTakePreview(); takeNode(tk); if (tk.gain) tk.gain.gain.value=tk.vol==null?1:tk.vol; if (tk.gain && mute){ try{ tk.gain.disconnect(); }catch(e){} } if (tk.gain && dest) tk.gain.connect(dest); tk.el.playbackRate=tk.rate; tk.el.preservesPitch=true; }
     V.imgs.forEach(m=>{ if (m.kind!=="vid") return;
       try{ if (!m.srcNode){ m.srcNode=ac.createMediaElementSource(m.el); m.gain=ac.createGain(); m.srcNode.connect(m.gain); }
         m.gain.disconnect(); m.gain.gain.value=(silent||m.mute)?0:(m.vol==null?1:m.vol); route(m.gain); m.el.muted=false; }catch(e){ m.el.muted=true; } });
     if (dest) tracks.push(...dest.stream.getAudioTracks()); }
-  let rec=null; const parts=[];
+  let rec=null; const parts=[]; const sigAtStart=record?vSig():null;
   if (record){
     try{ rec=new MediaRecorder(new MediaStream(tracks), mime?{mimeType:mime,videoBitsPerSecond:T>120?2.5e6:5e6}:{videoBitsPerSecond:T>120?2.5e6:5e6}); }
     catch(e){ st.textContent="לא הצלחתי להתחיל את היצירה במכשיר הזה."; srcs.forEach(s=>{try{s.stop();}catch(_){}}); vEndUI(); return; }
@@ -2683,8 +2686,10 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.gain.cancelScheduledValues(0); sd.gain.gain.value=sd.vol==null?1:sd.vol; sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
     if (!record){ vEndUI(); st.textContent=""; vPreview(); if (opts.onDone) opts.onDone(); return; }
     rec.onstop=async()=>{ tracks.forEach(t=>t.stop());
-      if (vStopFlag){ vEndUI(); st.textContent="היצירה הופסקה. העריכה נשמרה."; vPreview(); return; }
-      st.textContent="מסיים את הקובץ…"; vBlob=await fixMp4(new Blob(parts,{type:rec.mimeType||mime||"video/webm"})); if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
+      if (vStopFlag){ vEndUI(); st.textContent=opts.preview?"הצפייה נעצרה.":"היצירה הופסקה. העריכה נשמרה."; vPreview(); return; }
+      if (!opts.preview) st.textContent="מסיים את הקובץ…"; const fixed=await fixMp4(new Blob(parts,{type:rec.mimeType||mime||"video/webm"}));
+      if (opts.preview){ vBlob=fixed; vBlobSig=sigAtStart; if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob); vEndUI(); vPreview(); st.textContent="✓ הסרטון מוכן. אם הכל טוב, לוחצים ״📤 שליחה לוואטסאפ״ והוא נפתח מיד."; return; }
+      vBlob=fixed; vBlobSig=sigAtStart; if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
       vShowResult(); };
     rec.stop(); };
   const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0); if (opts.onStart) opts.onStart(startPerf);
@@ -2699,7 +2704,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
         if (t>=V.voiceAt && want<tk.out-.02 && !vStopFlag){ if (tk.el.paused){ try{ tk.el.currentTime=want; }catch(e){} tk.el.play().catch(()=>{}); } else if (Math.abs(tk.el.currentTime-want)>.3){ try{ tk.el.currentTime=want; }catch(e){} } }
         else if (!tk.el.paused) tk.el.pause(); } }
     const hd=$("tlHead"); if (V.imgs.length){ hd.hidden=t>vTotal(); hd.style.right=(Math.min(t,vTotal())*TL.pps)+"px"; const sc=$("tlScroll"); if (sc && !TL.ptrs.size) sc.scrollLeft=-Math.max(0,t*TL.pps-sc.clientWidth/2); }
-    st.textContent=(opts.hold && t>T)?`🔴 הסרטון נגמר, ממשיכה להקליט… ${Math.floor(t)} שניות. לסיום: "■ סיום הקלטה"`:(opts.label||(record?"יוצר את קובץ הסרטון… ":"מנגן… "))+`${Math.min(Math.ceil(t),Math.round(T))} מתוך ${Math.round(T)} שניות`;
+    st.textContent=(opts.hold && t>T)?`🔴 הסרטון נגמר, ממשיכה להקליט… ${Math.floor(t)} שניות. לסיום: "■ סיום הקלטה"`:(opts.label||(record&&!opts.preview?"יוצר את קובץ הסרטון… ":"מנגן… "))+`${Math.min(Math.ceil(t),Math.round(T))} מתוך ${Math.round(T)} שניות`;
     if (vStopFlag || (!opts.hold && t>=T+.15)){ finish(); return; } requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
 }
@@ -2709,10 +2714,11 @@ function vShowResult(){
   const out=$("vout"); out.src=vURL; out.hidden=false; vcan.hidden=true;
   out.onloadedmetadata=()=>{ if (out.duration===Infinity||isNaN(out.duration)){ out.currentTime=1e101; out.ontimeupdate=()=>{ out.ontimeupdate=null; out.currentTime=0; }; } };
   $("vsave").hidden=false; $("vshare").hidden=false; $("vreplay").hidden=false; $("vback").hidden=false; $("vplay").hidden=true; vSteps();
-  vHadFile=true; if (vAutoShare){ vAutoShare=false; $("vstatus").textContent="הסרטון מוכן! לחצי על ״📤 שליחה לוואטסאפ״ כדי לשלוח."; $("vshare").classList.add("pulse"); $("vshareAll").classList.add("pulse"); } if (vAutoSave){ vAutoSave=false; setTimeout(saveVideo,300); }
+  vHadFile=true; if (vAutoShare){ vAutoShare=false; $("vshare").classList.add("pulse"); $("vshareAll").classList.add("pulse");
+    setTimeout(()=>{ shareBlob(vBlob,stampName(/mp4/.test(vBlob.type)?"mp4":"webm"),$("vstatus")).then(ok=>{ if (!ok) $("vstatus").textContent="הסרטון מוכן! לחיצה על ״📤 שליחה לוואטסאפ״ פותחת את וואטסאפ."; }); },50); return; } if (vAutoSave){ vAutoSave=false; setTimeout(saveVideo,300); }
   $("vstatus").textContent="הקובץ מוכן! אפשר לצפות שוב ולשמור. כל שינוי יבטל אותו, ואז יוצרים מחדש.";
 }
-$("vplay").onclick=()=>vRun(false);
+$("vplay").onclick=()=>vRun(!!(window.MediaRecorder&&vcan.captureStream),{preview:true});
 $("vmake").onclick=()=>vRun(true);
 $("vstop").onclick=()=>{ vStopFlag=true; };
 $("vreplay").onclick=()=>{ const o=$("vout"); try{ o.currentTime=0; }catch(e){} o.play().catch(()=>{}); };
@@ -2720,10 +2726,10 @@ $("vback").onclick=()=>{ $("vout").pause(); $("vout").hidden=true; vcan.hidden=f
   $("vplay").hidden=false; vSteps(); $("vstatus").textContent="העריכה נשמרה. אפשר לשנות ולצפות שוב."; vPreview(); };
 const savedNames={};
 let vAutoSave=false, vAutoShare=false;
-$("vshareAll").onclick=()=>{ if (vBusy) return; if (vBlob && !$("vout").hidden){ vShareNow(); return; } vAutoShare=true; $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); vRun(true); };
+$("vshareAll").onclick=()=>{ if (vBusy) return; if (vFresh()){ vShareNow(); return; } vAutoShare=true; $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); vRun(true,{mute:true,label:"מכין את הסרטון לשליחה (בשקט)… "}); };
 $("vshare").onclick=()=>vShareNow();
 function vShareNow(){ if (!vBlob) return; shareBlob(vBlob,stampName(/mp4/.test(vBlob.type)?"mp4":"webm"),$("vstatus")); }
-$("vsaveAll").onclick=()=>{ if (vBusy) return; if (vBlob && !$("vout").hidden){ saveVideo(); return; } vAutoSave=true; $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); vRun(true); };
+$("vsaveAll").onclick=()=>{ if (vBusy) return; if (vFresh()){ saveVideo(); return; } vAutoSave=true; $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); vRun(true,{mute:true,label:"מכין את הסרטון לשמירה (בשקט)… "}); };
 $("vsave").onclick=()=>saveVideo();
 function saveVideo(){
   if (!vBlob) return;
