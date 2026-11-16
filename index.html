@@ -171,6 +171,12 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold-lo),var(--gold-hi))}
 .chip[disabled]{opacity:.4;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.btn:disabled,input:disabled,select:disabled{opacity:.38;cursor:not-allowed}
+.audRow{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(232,196,104,.25);border-radius:12px;margin-top:6px}
+.audRow.locked{border-color:#e8c468;background:rgba(232,196,104,.08)}
+.audName{flex:1;min-width:0;text-align:right;background:none;border:0;color:inherit;font:inherit;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0}
+.lockBtn.on{background:#e8c468;color:#2a1240}
+.exactRow input{font-size:16px;padding:6px 8px}
 </style>
 <script>
 /* shows any hidden error on screen, so a screenshot tells Claude exactly what broke */
@@ -192,7 +198,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 44</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 45</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -315,6 +321,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
               <input class="hidden-input" type="file" id="sndFile" accept="audio/*" multiple>
               <input class="hidden-input" type="file" id="sndRec" accept="audio/*" capture>
             </div>
+            <div id="audList" class="opt-group" hidden></div>
             <label class="check" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sndChain"> <span>כל קובץ קול חדש מתחיל מיד בסוף הקודם</span></label>
             <div class="itemPanel" id="vrow" hidden>
               <div class="row" style="justify-content:space-between">
@@ -338,6 +345,12 @@ input[type=range]{width:100%;accent-color:var(--gold)}
                 <input type="range" id="rsOut" min="0" max="10" step="0.1" value="10">
                 <div id="rsVfx" class="opt-group"></div>
               </div>
+              <div class="row" id="rLockRow"><button class="btn btn-ghost btn-small lockBtn" id="rLock" type="button">🔓 נעילה</button>
+                <label class="note" id="rPosLab" for="rPos">מקום בסדר:</label><select id="rPos" style="width:auto;min-width:120px"></select></div>
+              <p class="note" id="rLockNote" hidden style="margin:0">נעול: הזמן והמקום שלו לא זזים, גם לא בטעות. לשינוי לוחצים על 🔒.</p>
+              <div class="row exactRow"><span class="note">משנייה</span><input type="number" id="rFrom" inputmode="decimal" step="0.1" min="0" style="width:84px">
+                <span class="note">עד שנייה</span><input type="number" id="rTo" inputmode="decimal" step="0.1" min="0" style="width:84px">
+                <button class="btn btn-gold btn-small" id="rFromTo" type="button">החלה</button></div>
               <label class="note" for="rAt">מתי מתחיל בסרטון: <b id="rAtTxt"></b></label>
               <input type="range" id="rAt" min="0" max="10" step="0.1" value="0">
               <div id="rNudge" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;direction:ltr">
@@ -1602,7 +1615,7 @@ const SNAP_KEYS=["ov","duck","duckGap","duckLow","voiceAt","voiceIdx","style","t
 function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
-  o.sounds=V.sounds.map(sd=>{ if (!sd.id) sd.id=++HIST.seq; HIST.reg.set(sd.id,sd); return [sd.id,sd.at,sd.in,sd.out,sd.vol,sd.rate||1]; });
+  o.sounds=V.sounds.map(sd=>{ if (!sd.id) sd.id=++HIST.seq; HIST.reg.set(sd.id,sd); return [sd.id,sd.at,sd.in,sd.out,sd.vol,sd.rate||1,!!sd.lock]; });
   o.items=V.imgs.map(m=>{ if (!m.id){ m.id=++HIST.seq; } HIST.reg.set(m.id,m); return [m.id,m.fx||"auto",m.d,m.in,m.out,m.vol,!!m.mute,m.rate||1,m.cz||1,m.cx||0,m.cy||0]; });
   return JSON.stringify(o);
 }
@@ -1614,7 +1627,7 @@ function histCommit(){ if (HIST.lock) return;
 function histRestore(str){
   const o=JSON.parse(str); HIST.lock=true;
   SNAP_KEYS.forEach(k=>V[k]=o[k]!==undefined?o[k]:JSON.parse(JSON.stringify(VDEF[k]===undefined?null:VDEF[k]))); if (!V.ov||typeof V.ov!=="object") V.ov={}; setOutro(); $("vLinkEndTxt").value=V.linkEndTxt||"";
-  V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol,rate])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol,rate:rate||1}); return sd; }); V.rsel=null;
+  V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol,rate,lock])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol,rate:rate||1,lock:!!lock}); return sd; }); V.rsel=null;
   V.imgs=o.items.map(([id,fx,d,i,out,vol,mute,rate,cz,cx,cy])=>{ const m=HIST.reg.get(id); m.fx=fx; m.rate=rate||1; m.cz=cz||1; m.cx=cx||0; m.cy=cy||0; if (d!=null) m.d=d; if (i!=null){ m.in=i; m.out=out; } if (vol!=null) m.vol=vol; m.mute=mute; return m; });
   V.sel=-1; $("vtitle").value=V.title; $("vcap").value=V.cap; $("vend").value=V.end; $("vvol").value=Math.round(V.vol*100);
   vPrep(); vBuild(); vPreview(); HIST.lock=false; histButtons();
@@ -1690,12 +1703,13 @@ function rowsBuild(pps){
 /* row panel: sounds, extra recordings, the main recording, texts */
 function rObj(){ const s=V.rsel; if (!s) return null; return s.kind==="snd"?V.sounds[s.i]:s.kind==="txt"?V.texts[s.i]:s.kind==="voice"?voiceTake():null; }
 function rAtGet(o){ return V.rsel&&V.rsel.kind==="voice"?V.voiceAt:o.at; }
-function rAtSet(o,v){ if (V.rsel&&V.rsel.kind==="voice") V.voiceAt=v; else o.at=v; }
+function rAtSet(o,v){ if (V.rsel&&V.rsel.kind!=="txt"&&o&&o.lock) return; if (V.rsel&&V.rsel.kind==="voice") V.voiceAt=v; else o.at=v; }
 const rLen=o=>(o.out-o.in)/(o.rate||1);
 function rowPanel(){
+  audListBuild();
   const sel=V.rsel, box=$("vrow"), o=rObj();
   if (!o){ V.rsel=null; box.hidden=true; return; }
-  box.hidden=false; const isS=sel.kind!=="txt";
+  box.hidden=false; const isS=sel.kind!=="txt"; rLockUI(o);
   $("vrowTitle").textContent=sel.kind==="voice"?"ההקלטה הראשית":isS?(o.voice?o.name:"סאונד "+(sel.i+1)):"טקסט "+(sel.i+1);
   $("vrowTxt").hidden=isS; $("vrowSnd").hidden=!isS; $("rDurRow").hidden=isS; $("rSnapRow").hidden=!isS;
   $("rDel").textContent=sel.kind==="voice"?"להוציא מהסרטון":"מחיקה";
@@ -1765,12 +1779,14 @@ $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("cha
   const inner=$("tlInner"); let D=null, raf=0; const soon=()=>{ if (raf) return; raf=requestAnimationFrame(()=>{ raf=0; tlBuild(); }); };
   inner.addEventListener("pointerdown",e=>{ if (vBusy) return; const b=e.target.closest(".tlr, #tlVoice"); if (!b) return;
     let o, kind;
-    if (b.id==="tlVoice"){ kind="voice"; o={get at(){return V.voiceAt;}, set at(v){V.voiceAt=v;}}; }
-    else { kind=b.dataset.k; o=kind==="snd"?V.sounds[+b.dataset.i]:V.texts[+b.dataset.i]; }
-    D={kind,i:+b.dataset.i,o,x0:e.clientX,at0:o.at,d0:o.d,out0:o.out,type:e.target.closest(".tlh")?"end":"tap",id:e.pointerId};
+    let lk=false;
+    if (b.id==="tlVoice"){ kind="voice"; const tk=voiceTake(); lk=!!(tk&&tk.lock); o={get at(){return V.voiceAt;}, set at(v){V.voiceAt=v;}}; }
+    else { kind=b.dataset.k; o=kind==="snd"?V.sounds[+b.dataset.i]:V.texts[+b.dataset.i]; lk=kind==="snd"&&!!o.lock; }
+    D={kind,lk,i:+b.dataset.i,o,x0:e.clientX,at0:o.at,d0:o.d,out0:o.out,type:e.target.closest(".tlh")?"end":"tap",id:e.pointerId};
     try{ inner.setPointerCapture(e.pointerId); }catch(_){} e.preventDefault(); e.stopPropagation(); });
   window.addEventListener("pointermove",e=>{ if (!D||e.pointerId!==D.id) return; const dt=-(e.clientX-D.x0)/TL.pps;
-    if (D.type==="tap" && Math.abs(e.clientX-D.x0)>8) D.type="move";
+    if (D.type==="tap" && Math.abs(e.clientX-D.x0)>8){ if (D.lk){ D.type="locked"; $("vstatus").textContent="🔒 נעול. כדי להזיז, מבטלים קודם את הנעילה."; return; } D.type="move"; }
+    if (D.lk) return;
     if (D.type==="move") D.o.at=Math.max(0,Math.round((D.at0+dt)*10)/10);
     else if (D.type==="end"){ if (D.kind==="txt") D.o.d=Math.max(.5,Math.round((D.d0+dt)*10)/10); else if (D.kind==="snd") D.o.out=Math.max(D.o.in+.3,Math.min(D.o.dur,D.out0+dt*(D.o.rate||1))); }
     else return; soon(); });
@@ -2340,6 +2356,46 @@ function vfxChips(box,o){ box.innerHTML=""; const lab=document.createElement("sp
   const ch=document.createElement("div"); ch.className="chips"; box.appendChild(ch);
   chipGroup(ch,VOX,k=>(o.vfx||"")===k,k=>vfxApply(o,k));
   const nt=document.createElement("p"); nt.className="note"; nt.textContent="לוחצים על סגנון, והקול משתנה ומתנגן מיד. ההקלטה המקורית נשמרת, ו\"המקורי\" מחזיר אותה."; box.appendChild(nt); }
+/* ----- exact times, lock and order of the sound rows ----- */
+function audItems(){ const a=[], tk=voiceTake(); if (tk) a.push({o:tk,v:true,name:"ההקלטה הראשית"});
+  V.sounds.forEach((sd,i)=>a.push({o:sd,i,name:sd.voice?sd.name:(sd.name||"סאונד "+(i+1))}));
+  a.forEach(x=>{ x.s=x.v?V.voiceAt:x.o.at; x.e=x.s+(x.v?takeLen(x.o):rLen(x.o)); }); return a.sort((p,q)=>p.s-q.s||(p.v?-1:1)); }
+const audSet=(x,v)=>{ v=Math.max(0,Math.round(v*10)/10); if (x.v) V.voiceAt=v; else x.o.at=v; };
+const rLocked=o=>!!(o&&o.lock);
+function audMove(o,to){ const list=audItems(), from=list.findIndex(x=>x.o===o); if (from<0) return;
+  if (o.lock){ $("vstatus").textContent="ההקלטה נעולה. קודם מבטלים את הנעילה (🔓), ואז אפשר להזיז."; return; }
+  to=Math.max(0,Math.min(list.length-1,to)); if (to===from) return;
+  const gaps=list.map((x,k)=>Math.max(-30,x.s-(k?list[k-1].e:0)));
+  const arr=list.slice(); const [it]=arr.splice(from,1); arr.splice(to,0,it);
+  let t=0; arr.forEach((x,k)=>{ const len=x.e-x.s; if (x.o.lock){ t=x.e; return; } const s=Math.max(0,t+(k===0?list[0].s:gaps[k])); audSet(x,s); t=s+len; });
+  vBuild(); vPreview(); $("vstatus").textContent=`הועבר למקום ${to+1}. ההקלטות אחריו הסתדרו לבד אחת אחרי השנייה.`+(arr.some(x=>x.o.lock)?" (הנעולות נשארו במקומן.)":""); }
+function audListBuild(){ const box=$("audList"); if (!box) return; const list=audItems(); box.hidden=list.length<2; box.innerHTML=""; if (list.length<2) return;
+  const h=document.createElement("span"); h.className="label"; h.textContent="סדר הקולות"; box.appendChild(h);
+  list.forEach((x,k)=>{ const row=document.createElement("div"); row.className="audRow"+(x.o.lock?" locked":"");
+    const nm=document.createElement("button"); nm.type="button"; nm.className="audName"; nm.textContent=`${k+1}. ${x.name}`; nm.onclick=()=>{ V.rsel=x.v?{kind:"voice"}:{kind:"snd",i:x.i}; vBuild(); setTimeout(()=>$("vrow").scrollIntoView({block:"nearest",behavior:"smooth"}),60); };
+    const tm=document.createElement("span"); tm.className="note"; tm.dir="ltr"; tm.textContent=`${x.s.toFixed(1)}–${x.e.toFixed(1)}`;
+    const mk=(txt,lab,fn,dis)=>{ const b=document.createElement("button"); b.type="button"; b.className="btn btn-ghost btn-small"; b.textContent=txt; b.setAttribute("aria-label",lab); b.disabled=!!dis; b.onclick=fn; return b; };
+    row.append(nm,tm,mk(x.o.lock?"🔒":"🔓",x.o.lock?"ביטול נעילה":"נעילה",()=>{ x.o.lock=!x.o.lock; vBuild(); projTouch(); }),
+      mk("▲","להקדים",()=>audMove(x.o,k-1),k===0||x.o.lock), mk("▼","לאחר",()=>audMove(x.o,k+1),k===list.length-1||x.o.lock));
+    box.appendChild(row); }); }
+function rLockUI(o){ const isTxt=V.rsel&&V.rsel.kind==="txt", lk=!isTxt&&rLocked(o);
+  $("rLockRow").hidden=isTxt; $("rLock").textContent=lk?"🔒 נעול (לחיצה לביטול)":"🔓 נעילה";
+  $("rLock").classList.toggle("on",lk);
+  ["rAt","rsIn","rsOut","rsRate","rsRateReset","rSnapPrev","rFrom","rTo","rFromTo","rPos"].forEach(id=>{ const el=$(id); if (el) el.disabled=lk; });
+  document.querySelectorAll("#rNudge button").forEach(b=>b.disabled=lk);
+  $("rLockNote").hidden=!lk;
+  const at=rAtGet(o), len=isTxt?(o.d||0):rLen(o); if (document.activeElement!==$("rFrom")) $("rFrom").value=at.toFixed(1); if (document.activeElement!==$("rTo")) $("rTo").value=(at+len).toFixed(1);
+  const ps=$("rPos"); ps.hidden=isTxt; $("rPosLab").hidden=isTxt; if (!isTxt){ const list=audItems(), k=list.findIndex(x=>x.o===o); ps.innerHTML=""; list.forEach((x,j)=>{ const op=document.createElement("option"); op.value=j; op.textContent="מקום "+(j+1)+(j===k?" (עכשיו)":""); ps.appendChild(op); }); ps.value=k; } }
+$("rLock").onclick=()=>{ const o=rObj(); if (!o||V.rsel.kind==="txt") return; o.lock=!o.lock; vBuild(); projTouch(); $("vstatus").textContent=o.lock?"נעול: אי אפשר להזיז או לשנות את הזמן שלו עד שמבטלים.":"הנעילה בוטלה."; };
+$("rPos").onchange=e=>{ const o=rObj(); if (o) audMove(o,+e.target.value); };
+$("rFromTo").onclick=()=>{ const o=rObj(); if (!o) return; if (rLocked(o)){ $("vstatus").textContent="נעול. קודם מבטלים את הנעילה."; return; }
+  const f=parseFloat(String($("rFrom").value).replace(",",".")), t=parseFloat(String($("rTo").value).replace(",","."));
+  if (!isFinite(f)||!isFinite(t)||f<0||t<=f){ $("vstatus").textContent="צריך לכתוב שני מספרים: מאיזו שנייה ועד איזו שנייה (השני גדול מהראשון)."; return; }
+  rAtSet(o,Math.round(f*10)/10); let msg=`מתחיל בשנייה ${f.toFixed(1)} ונגמר בשנייה ${t.toFixed(1)}.`;
+  if (V.rsel.kind==="txt") o.d=Math.round((t-f)*10)/10;
+  else { const r=o.rate||1, want=(t-f)*r, out=Math.min(o.dur,o.in+want); o.out=Math.max(o.in+.3,out);
+    if (o.in+want>o.dur+.05){ const end=f+(o.out-o.in)/r; msg=`ההקלטה ארוכה רק ${((o.dur-o.in)/r).toFixed(1)} שניות, לכן היא מתחילה בשנייה ${f.toFixed(1)} ונגמרת בשנייה ${end.toFixed(1)}.`; } }
+  vBuild(); vPreview(); $("vstatus").textContent=msg; };
 function voiceEnd(){ const tk=voiceTake(); let e=tk?V.voiceAt+takeLen(tk):0; V.sounds.forEach(sd=>{ if (sd.voice) e=Math.max(e,sd.at+(sd.out-sd.in)/(sd.rate||1)); }); return e; }
 function takeToTimeline(t){
   const el=new Audio(t.url); el.preload="auto"; el.preservesPitch=true;
@@ -2624,8 +2680,8 @@ function tx(store,mode,fn){ return idb().then(d=>new Promise((res,rej)=>{ const 
 function blobOf(o){ if (!o.bid) o.bid=uid(); return o.blob; }
 function projState(){
   const cur=snap(), pool=[]; HIST.reg.forEach((o,id)=>{ if (!o.blob) return; blobOf(o);
-    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,vfx:o.vfx||"",obid:o.vfx?o.obid:null,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice}); });
-  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate,vfx:t.vfx||"",obid:t.vfx?t.obid:null}; });
+    pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,vfx:o.vfx||"",obid:o.vfx?o.obid:null,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice,lock:!!o.lock}); });
+  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate,vfx:t.vfx||"",obid:t.vfx?t.obid:null,lock:!!t.lock}; });
   if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid(); if (V.tick2Blob && !V.tick2Bid){ V.tick2Bid=uid(); }
   return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step, tick2Bid:V.tick2Blob?V.tick2Bid:null};
 }
@@ -2688,12 +2744,12 @@ async function projOpen(id){
   try{
     vReset(); const S=JSON.parse(p.state); const getB=bid=>tx("blobs","readonly",s=>s.get(id+":"+bid));
     for (const o of S.pool){ const b=await getB(o.bid); if (!b) continue; let m;
-      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,buf,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice,vfx:o.vfx||"",obid:o.obid||null}; }
+      if (o.snd){ const buf=await loadAudio(b), el=new Audio(URL.createObjectURL(b)); el.preload="auto"; m={url:el.src,el,buf,dur:buf.duration,peaks:takePeaks(buf,200),name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice,vfx:o.vfx||"",obid:o.obid||null,lock:!!o.lock}; }
       else if (o.kind==="vid"){ m=await loadClip(b); Object.assign(m,{fx:o.fx,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate||1,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       else { m=await imgItem(b); Object.assign(m,{fx:o.fx,d:o.d,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       m.id=o.id; m.bid=o.bid; m.blob=b; HIST.reg.set(o.id,m); }
     HIST.seq=S.hist.seq||HIST.seq;
-    for (const t of S.takes){ const b=await getB(t.bid); if (b) { const tk=await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); if (tk){ tk.vfx=t.vfx||""; tk.obid=t.obid||null; } } }
+    for (const t of S.takes){ const b=await getB(t.bid); if (b) { const tk=await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); if (tk){ tk.vfx=t.vfx||""; tk.obid=t.obid||null; tk.lock=!!t.lock; } } }
     V.voiceIdx=S.voiceIdx<V.takes.length?S.voiceIdx:-1;
     if (S.tick2Bid){ const b=await getB(S.tick2Bid); if (b){ try{ await setT2Img(b,S.tick2Bid); }catch(e){} } }
     if (S.ownMusicBid){ const b=await getB(S.ownMusicBid); if (b){ try{ V.ownMusic=await loadAudio(b); V.ownMusicBlob=b; V.ownMusicBid=S.ownMusicBid; V.musicName=S.musicName; }catch(e){} } }
