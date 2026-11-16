@@ -198,7 +198,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 48</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 49</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -2568,6 +2568,80 @@ async function playListen(){
   }catch(e){ st.textContent="לא הצלחתי להשמיע מוזיקה במכשיר הזה."; }
 }
 
+/* ----- turn the phone's "fragmented" MP4 into a normal MP4 with the full length written in it
+   (without this, WhatsApp, galleries and computers often see only the first few seconds) ----- */
+function mp4Flatten(ab){
+  const u=new Uint8Array(ab), dv=new DataView(ab), N=u.length;
+  const box=(off,end)=>{ if (off+8>end) return null; let sz=dv.getUint32(off), hdr=8; const typ=String.fromCharCode(u[off+4],u[off+5],u[off+6],u[off+7]);
+    if (sz===1){ sz=Number(dv.getBigUint64(off+8)); hdr=16; } else if (sz===0) sz=end-off; if (sz<hdr||off+sz>end) return null; return {off,sz,hdr,typ,end:off+sz,body:off+hdr}; };
+  const kids=(off,end)=>{ const a=[]; let b; while ((b=box(off,end))){ a.push(b); off=b.end; } return a; };
+  const find=(list,t)=>list.find(b=>b.typ===t);
+  const top=kids(0,N), ftyp=find(top,"ftyp"), moov=find(top,"moov"); if (!moov) throw new Error("no moov");
+  const mk=kids(moov.body,moov.end), mvhd=find(mk,"mvhd"), mvex=find(mk,"mvex");
+  if (!mvex || !top.some(b=>b.typ==="moof")) return null; // already a normal file
+  const mvTS=dv.getUint32(mvhd.body+(u[mvhd.body]===1?20:12));
+  const trex={}; kids(mvex.body,mvex.end).filter(b=>b.typ==="trex").forEach(b=>{ const p=b.body+4; trex[dv.getUint32(p)]={dur:dv.getUint32(p+8),size:dv.getUint32(p+12),flags:dv.getUint32(p+16)}; });
+  const tracks={};
+  mk.filter(b=>b.typ==="trak").forEach(tb=>{ const tk=kids(tb.body,tb.end), tkhd=find(tk,"tkhd"), mdia=find(tk,"mdia"), md=kids(mdia.body,mdia.end), mdhd=find(md,"mdhd"), hdlr=find(md,"hdlr"), minf=find(md,"minf"), mi=kids(minf.body,minf.end), stbl=find(mi,"stbl"), stsd=find(kids(stbl.body,stbl.end),"stsd");
+    const v=u[tkhd.body], id=dv.getUint32(tkhd.body+(v===1?20:12)), mv=u[mdhd.body], ts=dv.getUint32(mdhd.body+(mv===1?20:12));
+    tracks[id]={id,tb,tkhd,mdhd,hdlr,minf,mi,stsd,ts,handler:String.fromCharCode(...u.slice(hdlr.body+8,hdlr.body+12)),samples:[],t0:null}; });
+  top.filter(b=>b.typ==="moof").forEach(mf=>{ kids(mf.body,mf.end).filter(b=>b.typ==="traf").forEach(tf=>{ const tk=kids(tf.body,tf.end), tfhd=find(tk,"tfhd");
+      const fl=dv.getUint32(tfhd.body)&0xffffff; let p=tfhd.body+4; const id=dv.getUint32(p); p+=4; const T=tracks[id], dx=trex[id]||{dur:0,size:0,flags:0}; if (!T) return;
+      let base=mf.off; if (fl&1){ base=Number(dv.getBigUint64(p)); p+=8; } if (fl&2) p+=4;
+      let dDur=dx.dur, dSize=dx.size, dFlags=dx.flags; if (fl&8){ dDur=dv.getUint32(p); p+=4; } if (fl&0x10){ dSize=dv.getUint32(p); p+=4; } if (fl&0x20){ dFlags=dv.getUint32(p); p+=4; }
+      const tfdt=find(tk,"tfdt"); let dts=null; if (tfdt) dts=u[tfdt.body]===1?Number(dv.getBigUint64(tfdt.body+4)):dv.getUint32(tfdt.body+4);
+      if (dts==null) dts=T.samples.length?T.next:0; if (T.t0==null) T.t0=dts;
+      let dataEnd=null;
+      tk.filter(b=>b.typ==="trun").forEach(tr=>{ const ver=u[tr.body], f=dv.getUint32(tr.body)&0xffffff; let q=tr.body+4; const cnt=dv.getUint32(q); q+=4;
+        let off=dataEnd!=null&&!(f&1)?dataEnd:base; if (f&1){ off=base+dv.getInt32(q); q+=4; } let first=null; if (f&4){ first=dv.getUint32(q); q+=4; }
+        for (let i=0;i<cnt;i++){ let d=dDur, s=dSize, fg=(i===0&&first!=null)?first:dFlags, c=0;
+          if (f&0x100){ d=dv.getUint32(q); q+=4; } if (f&0x200){ s=dv.getUint32(q); q+=4; } if (f&0x400){ fg=dv.getUint32(q); q+=4; } if (f&0x800){ c=ver?dv.getInt32(q):dv.getUint32(q); q+=4; }
+          T.samples.push({off,size:s,dur:d,cto:c,key:!((fg>>16)&1)}); off+=s; dts+=d; }
+        dataEnd=off; });
+      T.next=dts; }); });
+  /* write the new file */
+  const ids=Object.keys(tracks).map(Number).filter(i=>tracks[i].samples.length); if (!ids.length) throw new Error("no samples");
+  const parts=[]; let total=0; const add=x=>{ parts.push(x); total+=x.length; };
+  const be32=n=>{ const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,n>>>0); return b; };
+  const mkbox=(typ,...ch)=>{ let len=8; ch.forEach(c=>len+=c.length); const b=new Uint8Array(len), d=new DataView(b.buffer); d.setUint32(0,len); for (let i=0;i<4;i++) b[4+i]=typ.charCodeAt(i); let o=8; ch.forEach(c=>{ b.set(c,o); o+=c.length; }); return b; };
+  const full=(typ,ver,flags,...ch)=>mkbox(typ,new Uint8Array([ver,(flags>>16)&255,(flags>>8)&255,flags&255]),...ch);
+  const arr32=a=>{ const b=new Uint8Array(a.length*4), d=new DataView(b.buffer); a.forEach((x,i)=>d.setUint32(i*4,x>>>0)); return b; };
+  const copy=b=>u.slice(b.off,b.end);
+  const ftypB=ftyp?copy(ftyp):mkbox("ftyp",new TextEncoder().encode("isom"),be32(512),new TextEncoder().encode("isomiso2avc1mp41"));
+  // data size
+  let mdatLen=0; ids.forEach(i=>tracks[i].samples.forEach(s=>mdatLen+=s.size));
+  const big=mdatLen+16>0xffffffff;
+  const build=(mdatStart)=>{ let pos=mdatStart; let movieDur=0;
+    const traks=ids.map(i=>{ const T=tracks[i], S=T.samples; const dur=S.reduce((a,s)=>a+s.dur,0); const lead=Math.max(0,T.t0||0);
+      const durMv=Math.round((dur+lead)/T.ts*mvTS); movieDur=Math.max(movieDur,durMv);
+      const stts=[]; S.forEach(s=>{ const l=stts[stts.length-1]; if (l&&l[1]===s.dur) l[0]++; else stts.push([1,s.dur]); });
+      const hasC=S.some(s=>s.cto!==0), negC=S.some(s=>s.cto<0); const ctts=[]; if (hasC) S.forEach(s=>{ const l=ctts[ctts.length-1]; if (l&&l[1]===s.cto) l[0]++; else ctts.push([1,s.cto]); });
+      const isV=T.handler==="vide", keys=[]; if (isV) S.forEach((s,k)=>{ if (s.key) keys.push(k+1); });
+      const offs=[]; S.forEach(s=>{ offs.push(pos); pos+=s.size; });
+      const stbl=mkbox("stbl", copy(T.stsd),
+        full("stts",0,0,be32(stts.length),arr32(stts.flat())),
+        ...(hasC?[full("ctts",negC?1:0,0,be32(ctts.length),arr32(ctts.flat()))]:[]),
+        ...(isV&&keys.length<S.length?[full("stss",0,0,be32(keys.length),arr32(keys))]:[]),
+        full("stsc",0,0,be32(1),arr32([1,1,1])),
+        full("stsz",0,0,be32(0),be32(S.length),arr32(S.map(s=>s.size))),
+        big?full("co64",0,0,be32(offs.length),(()=>{ const b=new Uint8Array(offs.length*8), d=new DataView(b.buffer); offs.forEach((x,k)=>d.setBigUint64(k*8,BigInt(x))); return b; })())
+           :full("stco",0,0,be32(offs.length),arr32(offs)));
+      const minf=mkbox("minf",...T.mi.filter(b=>b.typ!=="stbl").map(copy),stbl);
+      const mdhd=copy(T.mdhd), mv=mdhd[8]; const md=new DataView(mdhd.buffer); if (mv===1) md.setBigUint64(32,BigInt(dur)); else md.setUint32(24,dur);
+      const tkhd=copy(T.tkhd), tv=tkhd[8]; const tdv=new DataView(tkhd.buffer); if (tv===1) tdv.setBigUint64(36,BigInt(durMv)); else tdv.setUint32(28,durMv);
+      const mdia=mkbox("mdia",mdhd,copy(T.hdlr),minf);
+      const leadMv=Math.round(lead/T.ts*mvTS);
+      const edts=leadMv>0?[mkbox("edts",full("elst",0,0,be32(2),arr32([leadMv,0xffffffff,0x00010000,durMv-leadMv,0,0x00010000])))]:[];
+      return mkbox("trak",tkhd,...edts,mdia); });
+    const mvhdB=copy(mvhd), mvv=mvhdB[8], mvd=new DataView(mvhdB.buffer); if (mvv===1) mvd.setBigUint64(32,BigInt(movieDur)); else mvd.setUint32(24,movieDur);
+    return mkbox("moov",mvhdB,...traks); };
+  let moovB=build(0); const hdr=big?16:8; moovB=build(ftypB.length+moovB.length+hdr);
+  add(ftypB); add(moovB);
+  const mh=new Uint8Array(hdr), mhd=new DataView(mh.buffer); if (big){ mhd.setUint32(0,1); mh.set([109,100,97,116],4); mhd.setBigUint64(8,BigInt(mdatLen+16)); } else { mhd.setUint32(0,mdatLen+8); mh.set([109,100,97,116],4); }
+  add(mh); ids.forEach(i=>tracks[i].samples.forEach(s=>add(u.subarray(s.off,s.off+s.size))));
+  return parts; }
+async function fixMp4(blob){ try{ if (!/mp4/.test(blob.type)) return blob; const parts=mp4Flatten(await blob.arrayBuffer()); if (!parts) return blob;
+    return new Blob(parts,{type:blob.type.split(";")[0]}); }catch(e){ console.warn("mp4 fix failed",e); return blob; } }
 /* ----- play / record ----- */
 function vSetBusy(b){ vBusy=b; document.querySelectorAll("#videoView .panel button, #videoView .panel input, #videoView .panel textarea").forEach(el=>el.disabled=b);
   document.querySelectorAll("#videoView .panel label.btn").forEach(el=>el.style.pointerEvents=b?"none":""); if(!b) vBuild(); }
@@ -2608,9 +2682,9 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
   }
   const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.gain.cancelScheduledValues(0); sd.gain.gain.value=sd.vol==null?1:sd.vol; sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
     if (!record){ vEndUI(); st.textContent=""; vPreview(); if (opts.onDone) opts.onDone(); return; }
-    rec.onstop=()=>{ tracks.forEach(t=>t.stop());
+    rec.onstop=async()=>{ tracks.forEach(t=>t.stop());
       if (vStopFlag){ vEndUI(); st.textContent="היצירה הופסקה. העריכה נשמרה."; vPreview(); return; }
-      vBlob=new Blob(parts,{type:rec.mimeType||mime||"video/webm"}); if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
+      st.textContent="מסיים את הקובץ…"; vBlob=await fixMp4(new Blob(parts,{type:rec.mimeType||mime||"video/webm"})); if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
       vShowResult(); };
     rec.stop(); };
   const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0); if (opts.onStart) opts.onStart(startPerf);
