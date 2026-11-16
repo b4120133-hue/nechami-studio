@@ -118,8 +118,10 @@ input::placeholder,textarea::placeholder{color:#8f7aa6}
 .tlr .tlh{top:0;bottom:0}
 .tl-voice{cursor:grab;touch-action:none}
 .tl-ruler{cursor:pointer}
-#videoView.s4 .previewCol{order:-1}
-#videoView.s4 .poster{max-width:300px}
+#videoView .previewCol{order:-1}
+@media (max-width:859px){#videoView .poster,#videoView.s4 .poster{max-width:min(50vw,230px)}}
+@media (min-width:860px){#videoView .previewCol{position:static}}
+@media (min-width:860px){#videoView.s4 .poster{max-width:300px}}
 .takes{display:flex;flex-direction:column;gap:10px}
 .take{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(10,2,18,.45)}
 .take.on{border-color:var(--gold);background:linear-gradient(180deg,rgba(233,196,106,.14),rgba(233,196,106,.03))}
@@ -200,7 +202,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 52</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 53</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -314,8 +316,10 @@ input[type=range]{width:100%;accent-color:var(--gold)}
             <div class="row tl-bar">
               <button class="btn btn-ghost btn-small" id="tlOut" type="button" aria-label="הקטנת הסרגל">−</button>
               <button class="btn btn-ghost btn-small" id="tlIn" type="button" aria-label="הגדלת הסרגל">+</button>
+              <button class="btn btn-gold btn-small" id="tlSplit" type="button">✂️ פיצול</button>
               <span class="note" id="tlTotal"></span>
             </div>
+            <p class="note" id="tlSplitHint" style="margin:0">✂️ לפיצול: לוחצים על שורת המספרים למעלה כדי לשים את הקו האדום במקום החיתוך, מסמנים את מה שרוצים לחתוך (סרטון, תמונה, הקלטה או קול) ולוחצים ״פיצול״. כל חלק אפשר אחר כך למחוק, להנמיך או להשתיק לבד.</p>
             <div class="row">
               <label class="btn btn-ghost btn-small" for="sndFile">+ סאונד מקובץ</label>
               <label class="btn btn-ghost btn-small" for="sndRec">+ הקלטת סאונד</label>
@@ -617,6 +621,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <button class="btn btn-rec" id="vrecLive" type="button">🎙 הקלטה עם הסרטון</button>
         <button class="btn btn-ghost" id="vstop" type="button" hidden>■ עצירה</button>
       </div>
+      <div id="tlPrev"></div>
       <div class="tip" id="vrecHelp" hidden>
         <b>נפתח מקליט הטלפון, כמו קודם</b>
         <span>ההקלטה תיכנס לסרטון בדיוק כמו קודם. רוצה לראות את התמונות תוך כדי? פותחים את הסטודיו ואת "מקליט קול" במסך מפוצל: לוחצים על כפתור האפליקציות האחרונות (|||), לוחצים על הסמל של "מקליט קול" ← "פתיחה בתצוגת מסך מפוצל", ובוחרים את הסטודיו. מקליטים בחצי אחד, ובחצי השני לוחצים "▶ צפייה בסרטון".</span>
@@ -1686,7 +1691,7 @@ function chipGroup(box,opts,isOn,onPick,swatch){
 }
 /* ----- timeline ruler ----- */
 const TL={pps:40, ptrs:new Map(), drag:null, pinch:null};
-function tlBuild(){
+function tlBuild(){ requestAnimationFrame(tlHeadShow);
   const has=V.imgs.length>0; $("tl").hidden=!has; if (!has) return;
   const pps=TL.pps, track=$("tlTrack"), ruler=$("tlRuler"), inner=$("tlInner");
   track.innerHTML=""; let acc=0;
@@ -1824,9 +1829,41 @@ $("sndFile").addEventListener("change",onSnd); $("sndRec").addEventListener("cha
     if (d.type==="tap"){ const same=V.rsel&&V.rsel.kind===d.kind&&(d.kind==="voice"||V.rsel.i===d.i); V.rsel=same?null:{kind:d.kind,i:d.i}; if (!same) setTimeout(()=>$("vrow").scrollIntoView({block:"nearest",behavior:"smooth"}),60); }
     vBuild(); vPreviewAt2(d.o.at+.2); };
   window.addEventListener("pointerup",up); window.addEventListener("pointercancel",up);
+  { const ru=$("tlRuler"); let rd=false; const mv=e=>{ const r=inner.getBoundingClientRect(); TL.scrub=Math.max(0,Math.min(vTotal()-.01,(r.right-e.clientX)/TL.pps)); tlHeadShow(); if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vDrawPreview(TL.scrub); } };
+    ru.addEventListener("pointerdown",e=>{ rd=true; try{ ru.setPointerCapture(e.pointerId); }catch(x){} mv(e); }); ru.addEventListener("pointermove",e=>{ if (rd) mv(e); }); ["pointerup","pointercancel"].forEach(n=>ru.addEventListener(n,()=>{ rd=false; })); ru.style.touchAction="none"; }
   $("tlRuler").addEventListener("click",e=>{ const r=inner.getBoundingClientRect(), t=Math.max(0,Math.min(vTotal()-.01,(r.right-e.clientX)/TL.pps)); TL.scrub=t;
     const hd=$("tlHead"); hd.hidden=false; hd.style.right=(t*TL.pps)+"px"; if (!vBusy && $("vout").hidden){ if (!vBgC) vPrep(); vDrawPreview(t); } });
 })();
+/* ----- split at the red line (like CapCut): videos, photos, the recording and sound rows ----- */
+function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
+function sndSplitAt(o,t){ const r=o.rate||1, src=o.in+(t-o.at)*r; if (o.lock) return "lock"; if (!(src>o.in+.15&&src<o.out-.15)) return "edge";
+  const n={...o}; ["node","gain","id","el","_vurl"].forEach(k=>delete n[k]); n.el=new Audio(o.url); n.el.preload="auto"; n.el.preservesPitch=true;
+  n.in=src; n.at=Math.round(t*100)/100; o.out=src; if (o.name) n.name=o.name.replace(/ \(\d\)$/,"")+" (2)";
+  V.sounds.splice(V.sounds.indexOf(o)+1,0,n); return n; }
+async function tlSplit(){ const st=$("vstatus"), t=TL.scrub;
+  if (t==null){ st.textContent="קודם לוחצים על שורת המספרים שמעל הסרגל, כדי לשים את הקו האדום במקום שרוצים לחתוך."; return; }
+  const sel=V.rsel;
+  if (sel && (sel.kind==="snd"||sel.kind==="voice")){
+    let o=sel.kind==="snd"?V.sounds[sel.i]:voiceTake(); if (!o) return;
+    if (o.lock){ st.textContent="🔒 הקול הזה נעול. קודם מבטלים את הנעילה."; return; }
+    if (sel.kind==="voice"){ const tk=o, len=takeLen(tk); if (!(t>V.voiceAt+.1&&t<V.voiceAt+len-.1)){ st.textContent="הקו האדום לא נמצא על ההקלטה. מזיזים אותו לתוך ההקלטה."; return; }
+      const el=new Audio(tk.url); el.preload="auto"; el.preservesPitch=true;
+      const sd={url:tk.url,el,buf:tk.buf,blob:tk.blob,bid:tk.bid,dur:tk.dur,in:tk.in,out:tk.out,rate:tk.rate||1,at:V.voiceAt,vol:tk.vol==null?1:tk.vol,peaks:tk.peaks,name:"ההקלטה",voice:true,vfx:tk.vfx||"",obid:tk.obid||null};
+      V.sounds.unshift(sd); V.voiceIdx=-1; o=sd; }
+    const n=sndSplitAt(o,t); if (n==="edge"){ st.textContent="הקו האדום לא נמצא באמצע הקול הזה. מזיזים אותו לתוך הקול."; vBuild(); return; }
+    V.rsel={kind:"snd",i:V.sounds.indexOf(n)}; vBuild(); vPreviewAt2(t);
+    st.textContent=`✂️ הקול נחתך בשנייה ${t.toFixed(1)}. עכשיו יש שני חלקים: כל אחד אפשר לסמן ולהנמיך, להשתיק, להזיז או למחוק לבד.`; return; }
+  const tl=vTimeline(); let k=tl.findIndex(it=>t>=it.start&&t<it.start+it.dur);
+  if (V.sel!=null && tl[V.sel] && t>tl[V.sel].start && t<tl[V.sel].start+tl[V.sel].dur) k=V.sel;
+  if (k<0){ st.textContent="הקו האדום לא נמצא על סרטון או תמונה."; return; }
+  const it=tl[k], m=it.m, local=t-it.start;
+  if (local<.15||it.dur-local<.15){ st.textContent="הקו האדום בדיוק בקצה. מזיזים אותו קצת פנימה."; return; }
+  if (m.kind==="vid"){ const r=await clipCut(k,m.in/(m.rate||1)+local,0,true); if (r!=="split"){ st.textContent="לא הצלחתי לחתוך כאן."; return; }
+    await refreshPoster(V.imgs[k]).catch(()=>{}); await refreshPoster(V.imgs[k+1]).catch(()=>{}); }
+  else { const n={...m}; ["id","ov"].forEach(x=>delete n[x]); n.d=Math.round((m.d-local)*10)/10; m.d=Math.round(local*10)/10; V.imgs.splice(k+1,0,n); }
+  V.sel=k+1; V.rsel=null; vBuild(); vPreviewAt2(t);
+  st.textContent=`✂️ ${m.kind==="vid"?"הסרטון":"התמונה"} נחתך בשנייה ${t.toFixed(1)}. עכשיו יש שני חלקים: לחיצה על חלק פותחת אותו, ואפשר להשתיק, להנמיך, לקצר או למחוק רק אותו.`; }
+$("tlSplit").onclick=()=>tlSplit();
 function tlTargetIndex(x,skip){ let k=0; [...$("tlTrack").children].forEach((el,j)=>{ if (j===skip) return; const r=el.getBoundingClientRect(); if (r.left+r.width/2>x) k++; }); return k; }
 (function(){
   const track=$("tlTrack");
@@ -1949,7 +1986,7 @@ async function cloneClip(m){ const el=document.createElement("video"); el.playsI
   await new Promise(res=>{ el.onloadeddata=res; el.onerror=res; setTimeout(res,6000); });
   const n={...m}; ["srcNode","gain","id","ov"].forEach(k=>delete n[k]); n.el=el; return n; }
 async function clipCut(i,a,b,keepMiddle){ const m=V.imgs[i]; if (!m||m.kind!=="vid") return "no";
-  const R=m.rate||1, A=a*R, B=b*R; if (!(A>=0)||!(B>A)) return "bad";
+  const R=m.rate||1, A=a*R, B=keepMiddle?A+1:b*R; if (!(A>=0)||!(B>A)) return "bad";
   if (A<=m.in+.15 && B>=m.out-.15) return "all";
   if (keepMiddle){ if (A<=m.in+.15||A>=m.out-.15) return "edge"; const n=await cloneClip(m); n.in=A; m.out=A; V.imgs.splice(i+1,0,n); return "split"; }
   if (A<=m.in+.15){ m.in=Math.min(B,m.out-.3); return "start"; }
@@ -2296,7 +2333,7 @@ $("vLink").onclick=()=>{ V.link=!V.link; vBuild(); vPreview(); };
 $("vSpk").onclick=()=>{ V.spk=!V.spk; vBuild(); vPreview(); };
 function vSteps(){
   setTimeout(cropState,0);
-  { const tl=$("tl"), dest=V.step===4?$("tlStep4"):$("tlHome"); if (tl.parentNode!==dest) dest.appendChild(tl); $("videoView").classList.toggle("s4",V.step===4); }
+  { const tl=$("tl"), dest=$("tlPrev"); if (tl.parentNode!==dest) dest.appendChild(tl); $("videoView").classList.toggle("s4",V.step===4); }
   $("vTick2").setAttribute("aria-pressed",V.tick2); $("vTick2Box").hidden=!V.tick2; if (document.activeElement!==$("vTick2Txt")) $("vTick2Txt").value=V.tick2Txt||"";
   $("vT2Logo").setAttribute("aria-pressed",V.tick2Logo); $("vT2Pic").hidden=!V.tick2Img; if (V.tick2Img) $("vT2Pic").src=V.tick2Img.toDataURL(); $("vT2Rm").hidden=!V.tick2Img; $("vT2PicTxt").textContent=V.tick2Img?"התמונה בבאנר":"לוגו או תמונה נוספים (לא חובה)";
   { const sp=$("vTick2Sp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tick2Speed||1)-v)<.01,v=>{ V.tick2Speed=v; vBuild(); vPreviewAt2(1); }); }
