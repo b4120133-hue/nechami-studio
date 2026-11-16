@@ -202,7 +202,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 54</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 55</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -319,6 +319,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
               <button class="btn btn-gold btn-small" id="tlSplit" type="button">✂️ פיצול</button>
             </div>
             <div class="row" id="tlNudge" style="justify-content:center;gap:6px;direction:ltr">
+              <button class="btn btn-ghost btn-small" id="tlStart" type="button" aria-label="חזרה להתחלה">⏮ 0</button>
               <button class="btn btn-ghost btn-small" type="button" data-d="-1" aria-label="שנייה אחורה">−1</button>
               <button class="btn btn-ghost btn-small" type="button" data-d="-0.1" aria-label="עשירית שנייה אחורה">−0.1</button>
               <b id="tlNow" style="min-width:74px;text-align:center;color:#ff7a7a;font-size:18px">—</b>
@@ -626,7 +627,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
       <div class="row" style="justify-content:center">
         <button class="btn btn-ghost" id="vplay" type="button">▶ צפייה בסרטון</button>
         <button class="btn btn-rec" id="vrecLive" type="button">🎙 הקלטה עם הסרטון</button>
-        <button class="btn btn-ghost" id="vstop" type="button" hidden>■ עצירה</button>
+        <button class="btn btn-ghost" id="vstop" type="button" hidden>⏸ עצירה</button>
       </div>
       <div id="tlPrev"></div>
       <div class="tip" id="vrecHelp" hidden>
@@ -1855,7 +1856,7 @@ function scrubTo(t){ t=Math.max(0,Math.min(vTotal()-.01,Math.round(t*100)/100));
   else draw(); }
 document.querySelectorAll("#tlNudge [data-d]").forEach(b=>b.onclick=()=>{ if (vRunning) return; scrubTo((TL.scrub||0)+(+b.dataset.d)); });
 /* ----- split at the red line (like CapCut): videos, photos, the recording and sound rows ----- */
-function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; const lab=$("tlNow"); if (lab) lab.textContent=TL.scrub==null?"—":TL.scrub.toFixed(1)+" שנ׳"; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
+function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; vPlayLabel(); const lab=$("tlNow"); if (lab) lab.textContent=TL.scrub==null?"—":TL.scrub.toFixed(1)+" שנ׳"; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
 function sndSplitAt(o,t){ const r=o.rate||1, src=o.in+(t-o.at)*r; if (o.lock) return "lock"; if (!(src>o.in+.15&&src<o.out-.15)) return "edge";
   const n={...o}; ["node","gain","id","el","_vurl"].forEach(k=>delete n[k]); n.el=new Audio(o.url); n.el.preload="auto"; n.el.preservesPitch=true;
   n.in=src; n.at=Math.round(t*100)/100; o.out=src; if (o.name) n.name=o.name.replace(/ \(\d\)$/,"")+" (2)";
@@ -2742,7 +2743,7 @@ async function fixMp4(blob){ try{ if (!/mp4/.test(blob.type)) return blob; const
 /* ----- play / record ----- */
 function vSetBusy(b){ vBusy=b; document.querySelectorAll("#videoView .panel button, #videoView .panel input, #videoView .panel textarea").forEach(el=>el.disabled=b);
   document.querySelectorAll("#videoView .panel label.btn").forEach(el=>el.style.pointerEvents=b?"none":""); if(!b) vBuild(); }
-async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
+async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent; const from=Math.max(0,+opts.from||0);
   const st=$("vstatus");
   let mime="";
   if (record){
@@ -2760,11 +2761,11 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
     const mute=!!opts.mute, route=n=>{ if(dest) n.connect(dest); if (!mute) n.connect(ac.destination); };
     const talk=speechZones(T), hasVoice=!!(voiceTake()||V.sounds.some(x=>x.voice));
     if (music){ const s=ac.createBufferSource(), g=ac.createGain(); s.buffer=music; s.loop=true;
-      if (V.duck && hasVoice) duckAutomate(g.gain,t0a,T,V.vol,talk,true);
-      else { const lvl=V.vol*(hasVoice?.3:1); g.gain.setValueAtTime(0,t0a); g.gain.linearRampToValueAtTime(lvl,t0a+.8); g.gain.setValueAtTime(lvl,t0a+Math.max(.9,T-1.8)); g.gain.linearRampToValueAtTime(0,t0a+T); }
-      s.connect(g); route(g); s.start(t0a); s.stop(t0a+T+.2); srcs.push(s); }
+      if (V.duck && hasVoice) duckAutomate(g.gain,t0a-from,T,V.vol,talk,true);
+      else { const lvl=V.vol*(hasVoice?.3:1); { const b0=t0a-from; if (from>.5){ g.gain.setValueAtTime(lvl,t0a); } else { g.gain.setValueAtTime(0,b0); g.gain.linearRampToValueAtTime(lvl,b0+.8); } g.gain.setValueAtTime(lvl,Math.max(t0a,b0+Math.max(.9,T-1.8))); g.gain.linearRampToValueAtTime(0,b0+T); } }
+      s.connect(g); route(g); s.start(t0a,from%Math.max(.1,music.duration)); s.stop(t0a-from+T+.2); srcs.push(s); }
     stopSndPrev(); V.sounds.forEach(sd=>{ takeNode(sd); if (sd.gain){ const gp=sd.gain.gain; gp.cancelScheduledValues(0);
-      if (silent) gp.value=0; else if (V.duck && hasVoice && !sd.voice) duckAutomate(gp,t0a,T,sd.vol,talk,false); else gp.value=sd.vol;
+      if (silent) gp.value=0; else if (V.duck && hasVoice && !sd.voice) duckAutomate(gp,t0a-from,T,sd.vol,talk,false); else gp.value=sd.vol;
       if (mute){ try{ sd.gain.disconnect(); }catch(e){} } if (dest) sd.gain.connect(dest); } });
     const tk=silent?null:voiceTake(); if (tk){ stopTakePreview(); takeNode(tk); if (tk.gain) tk.gain.gain.value=tk.vol==null?1:tk.vol; if (tk.gain && mute){ try{ tk.gain.disconnect(); }catch(e){} } if (tk.gain && dest) tk.gain.connect(dest); tk.el.playbackRate=tk.rate; tk.el.preservesPitch=true; }
     V.imgs.forEach(m=>{ if (m.kind!=="vid") return;
@@ -2778,7 +2779,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
     rec.ondataavailable=e=>{ if (e.data&&e.data.size) parts.push(e.data); };
   }
   const finish=()=>{ srcs.forEach(s=>{ try{s.stop();}catch(e){} }); V.sounds.forEach(sd=>{ sd.el.pause(); try{ if (sd.gain){ sd.gain.gain.cancelScheduledValues(0); sd.gain.gain.value=sd.vol==null?1:sd.vol; sd.gain.disconnect(); sd.gain.connect(AC().destination); } }catch(e){} }); { const tk=voiceTake(); if (tk){ tk.el.pause(); try{ if (tk.gain) tk.gain.disconnect(); tk.gain.connect(AC().destination); }catch(e){} } } vRunning=false; vPauseClips(); $("tlHead").hidden=true;
-    const stoppedAt=vStopFlag?vNowT:null;
+    const stoppedAt=vStopFlag?vNowT:null; if (!vStopFlag && !opts.hold){ TL.scrub=null; }
     if (!record){ vEndUI(); st.textContent=""; if (stoppedAt!=null){ scrubTo(stoppedAt); st.textContent=`⏸ נעצר בשנייה ${stoppedAt.toFixed(1)}. אפשר לכוונן עם הכפתורים ולגזור.`; } else vPreview(); if (opts.onDone) opts.onDone(); return; }
     rec.onstop=async()=>{ tracks.forEach(t=>t.stop());
       if (vStopFlag){ vEndUI(); if (stoppedAt!=null){ scrubTo(stoppedAt); st.textContent=`⏸ נעצר בשנייה ${stoppedAt.toFixed(1)}. אפשר לכוונן עם הכפתורים ולגזור.`; } else { st.textContent="היצירה הופסקה."; vPreview(); } return; }
@@ -2787,7 +2788,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
       vBlob=fixed; vBlobSig=sigAtStart; if (vURL) URL.revokeObjectURL(vURL); vURL=URL.createObjectURL(vBlob);
       vShowResult(); };
     rec.stop(); };
-  const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0); if (opts.onStart) opts.onStart(startPerf);
+  const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0)-from*1000; if (opts.onStart) opts.onStart(startPerf);
   vRunning=true;
   if (rec) rec.start(250);
   const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000); vNowT=Math.min(t,T);
@@ -2803,7 +2804,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent;
     if (vStopFlag || (!opts.hold && t>=T+.15)){ finish(); return; } requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
 }
-function vEndUI(){ vSetBusy(false); $("vbar").hidden=true; $("vstop").hidden=true; $("vplay").hidden=false; vSteps(); }
+function vEndUI(){ setTimeout(()=>{ tlHeadShow(); vPlayLabel(); },0); vSetBusy(false); $("vbar").hidden=true; $("vstop").hidden=true; $("vplay").hidden=false; vSteps(); }
 function vShowResult(){
   vSetBusy(false); $("vbar").hidden=true; $("vstop").hidden=true;
   const out=$("vout"); out.src=vURL; out.hidden=false; vcan.hidden=true;
@@ -2813,9 +2814,12 @@ function vShowResult(){
     setTimeout(()=>{ shareBlob(vBlob,stampName(/mp4/.test(vBlob.type)?"mp4":"webm"),$("vstatus")).then(ok=>{ if (!ok) $("vstatus").textContent="הסרטון מוכן! לחיצה על ״📤 שליחה לוואטסאפ״ פותחת את וואטסאפ."; }); },50); return; } if (vAutoSave){ vAutoSave=false; setTimeout(saveVideo,300); }
   $("vstatus").textContent="הקובץ מוכן! אפשר לצפות שוב ולשמור. כל שינוי יבטל אותו, ואז יוצרים מחדש.";
 }
-$("vplay").onclick=()=>vRun(!!(window.MediaRecorder&&vcan.captureStream),{preview:true});
+$("vplay").onclick=()=>{ const from=(TL.scrub!=null&&TL.scrub<vTotal()-.3)?TL.scrub:0;
+  if (from>.05) vRun(false,{from}); else vRun(!!(window.MediaRecorder&&vcan.captureStream),{preview:true}); };
+function vPlayLabel(){ const b=$("vplay"); if (!b) return; const t=TL.scrub; b.textContent=(t!=null&&t>.05&&t<vTotal()-.3)?`▶ המשך מ־${t.toFixed(1)}`:"▶ צפייה בסרטון"; }
 $("vmake").onclick=()=>vRun(true);
 $("vstop").onclick=()=>{ vStopFlag=true; };
+$("tlStart").onclick=()=>{ if (vRunning) return; scrubTo(0); TL.scrub=null; tlHeadShow(); $("vstatus").textContent="חזרה להתחלה. ״צפייה״ מתחילה מההתחלה."; };
 $("vreplay").onclick=()=>{ const o=$("vout"); try{ o.currentTime=0; }catch(e){} o.play().catch(()=>{}); };
 $("vback").onclick=()=>{ $("vout").pause(); $("vout").hidden=true; vcan.hidden=false; $("vsave").hidden=true; $("vshare").hidden=true; $("vreplay").hidden=true; $("vback").hidden=true;
   $("vplay").hidden=false; vSteps(); $("vstatus").textContent="העריכה נשמרה. אפשר לשנות ולצפות שוב."; vPreview(); };
