@@ -172,6 +172,8 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .chip[disabled]{opacity:.4;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 .btn:disabled,input:disabled,select:disabled{opacity:.38;cursor:not-allowed}
+.askBox{border:1px solid rgba(232,196,104,.35);border-radius:14px;padding:12px;margin-top:10px}
+.cutBox{border-top:1px dashed rgba(232,196,104,.3);padding-top:10px;margin-top:6px}
 .audRow{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(232,196,104,.25);border-radius:12px;margin-top:6px}
 .audRow.locked{border-color:#e8c468;background:rgba(232,196,104,.08)}
 .audName{flex:1;min-width:0;text-align:right;background:none;border:0;color:inherit;font:inherit;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0}
@@ -198,7 +200,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 50</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 51</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -415,6 +417,13 @@ input[type=range]{width:100%;accent-color:var(--gold)}
             <label class="note" for="vtOut">איפה לסיים: <b id="vtOutTxt">0:00</b></label>
             <input type="range" id="vtOut" min="0" max="10" step="0.1" value="10">
             <span class="note" id="vtLen"></span>
+            <div class="opt-group cutBox">
+              <span class="label">✂️ גזירת קטע מהאמצע</span>
+              <div class="row exactRow"><span class="note">משנייה</span><input type="number" id="vcA" inputmode="decimal" step="0.1" min="0" style="width:84px">
+                <span class="note">עד שנייה</span><input type="number" id="vcB" inputmode="decimal" step="0.1" min="0" style="width:84px"></div>
+              <div class="row"><button class="btn btn-gold btn-small" id="vcCut" type="button">✂️ לגזור ולזרוק את הקטע</button><button class="btn btn-ghost btn-small" id="vcSplit" type="button">✂️ לחתוך לשניים במקום הראשון</button></div>
+              <p class="note" style="margin:0">השניות הן של הסרטון הזה עצמו (כמו בסרגלים למעלה). אחרי הגזירה שני החלקים עומדים אחד ליד השני, וכל חלק אפשר להזיז, לקצר או למחוק בנפרד.</p>
+            </div>
           </div>
           <div class="opt-group" id="vrateRow" hidden>
             <span class="label">מהירות הסרטון</span>
@@ -571,11 +580,13 @@ input[type=range]{width:100%;accent-color:var(--gold)}
           <p class="note" id="vsaveNote">יוצר את הסרטון הסופי ושומר אותו בתיקיית ההורדות בשם שמתחיל ב־Nechami-Community. היצירה לוקחת כאורך הסרטון, לא לצאת מהמסך בזמן הזה.</p>
         </div>
         <div id="tlStep4"></div>
-        <div id="vaskBox" class="opt-group" hidden>
-          <label class="label" for="vask">מה לשנות?</label>
-          <textarea id="vask" style="min-height:80px" placeholder="למשל: תעבירי את תמונה 3 להתחלה, אפקט סיבוב לתמונה 2, אותיות אדומות וגדולות, מוזיקה חגיגית"></textarea>
-          <div class="row"><button class="btn btn-ghost btn-small" id="vaskGo" type="button">ביצוע השינוי</button><span class="note" id="vaskOut" aria-live="polite"></span></div>
-        </div>
+      </div>
+
+      <div id="vaskBox" class="opt-group askBox">
+        <label class="label" for="vask">📝 הערות לתיקון (כותבים מה לשנות, ו־Gemini מסדר)</label>
+        <textarea id="vask" style="min-height:80px" placeholder="למשל: להחליף בין תמונה 1 לתמונה 3, ובין 5 ל־6. בסרטון 2 למחוק משנייה 4 עד 7. אפקט זום לתמונה 2. אותיות צהובות וגדולות."></textarea>
+        <div class="row"><button class="btn btn-gold btn-small" id="vaskGo" type="button">📨 שליחה ותיקון</button><button class="btn btn-ghost btn-small" id="vaskUndo" type="button" hidden>↶ ביטול התיקון</button></div>
+        <p class="note" id="vaskOut" aria-live="polite"></p>
       </div>
 
       <div class="row stepnav">
@@ -1928,7 +1939,26 @@ function vBuild(){
 }
 const fmtS=x=>{ x=Math.max(0,x); const m=Math.floor(x/60), r=x-m*60; return m+":"+(r<10?"0":"")+r.toFixed(1); };
 function durUI(it){ $("vdRange").value=Math.min(15,it.d); $("vdTxt").textContent=(+it.d).toFixed(1).replace(".0","")+" שניות"; }
-function trimUI(it){ const R=it.rate||1; ["vtIn","vtOut"].forEach(id=>$(id).max=(it.dur/R).toFixed(1)); $("vtIn").value=it.in/R; $("vtOut").value=it.out/R;
+/* ----- cut a piece out of a clip / split a clip in two ----- */
+async function cloneClip(m){ const el=document.createElement("video"); el.playsInline=true; el.setAttribute("playsinline",""); el.muted=true; el.preload="auto"; el.src=m.el.currentSrc||m.el.src;
+  await new Promise(res=>{ el.onloadeddata=res; el.onerror=res; setTimeout(res,6000); });
+  const n={...m}; ["srcNode","gain","id","ov"].forEach(k=>delete n[k]); n.el=el; return n; }
+async function clipCut(i,a,b,keepMiddle){ const m=V.imgs[i]; if (!m||m.kind!=="vid") return "no";
+  const R=m.rate||1, A=a*R, B=b*R; if (!(A>=0)||!(B>A)) return "bad";
+  if (A<=m.in+.15 && B>=m.out-.15) return "all";
+  if (keepMiddle){ if (A<=m.in+.15||A>=m.out-.15) return "edge"; const n=await cloneClip(m); n.in=A; m.out=A; V.imgs.splice(i+1,0,n); return "split"; }
+  if (A<=m.in+.15){ m.in=Math.min(B,m.out-.3); return "start"; }
+  if (B>=m.out-.15){ m.out=Math.max(A,m.in+.3); return "end"; }
+  const n=await cloneClip(m); n.in=B; m.out=A; V.imgs.splice(i+1,0,n); return "cut"; }
+async function clipCutUI(split){ const i=V.sel, m=V.imgs[i]; if (!m||m.kind!=="vid") return; const st=$("vstatus");
+  const a=parseFloat(String($("vcA").value).replace(",",".")), b=split?a+1:parseFloat(String($("vcB").value).replace(",","."));
+  if (!isFinite(a)||(!split&&(!isFinite(b)||b<=a))){ st.textContent=split?"כותבים בתיבה ״משנייה״ איפה לחתוך.":"צריך לכתוב משנייה ועד שנייה (השני גדול מהראשון)."; return; }
+  const r=await clipCut(i,a,b,split);
+  const msg={cut:`הקטע משנייה ${a} עד ${b} נגזר ונזרק. עכשיו יש שני חלקים, אחד ליד השני.`,split:`הסרטון נחתך לשניים בשנייה ${a}. אפשר לסמן כל חלק ולהזיז, לקצר או למחוק אותו.`,start:"הקטע היה בהתחלה, אז פשוט קיצרתי את ההתחלה.",end:"הקטע היה בסוף, אז פשוט קיצרתי את הסוף.",all:"זה כל הסרטון. כדי למחוק אותו כולו לוחצים על מחיקה.",edge:"צריך לבחור נקודה שבתוך הסרטון, לא בקצה.",bad:"המספרים לא תקינים."}[r]||"";
+  if (["cut","split","start","end"].includes(r)){ V.sel=r==="cut"||r==="split"?i:i; await refreshPoster(V.imgs[i]).catch(()=>{}); if (V.imgs[i+1]&&(r==="cut"||r==="split")) await refreshPoster(V.imgs[i+1]).catch(()=>{}); vBuild(); vPreviewAt(i); }
+  st.textContent=msg; }
+$("vcCut").onclick=()=>clipCutUI(false); $("vcSplit").onclick=()=>clipCutUI(true);
+function trimUI(it){ const R=it.rate||1; if (document.activeElement!==$("vcA")&&document.activeElement!==$("vcB")&&$("vcA").dataset.item!==String(V.sel)+":"+it.in+":"+it.out){ const a=it.in/R, b=it.out/R, L=b-a; $("vcA").value=(a+L/3).toFixed(1); $("vcB").value=(a+2*L/3).toFixed(1); $("vcA").dataset.item=String(V.sel)+":"+it.in+":"+it.out; } ["vtIn","vtOut"].forEach(id=>$(id).max=(it.dur/R).toFixed(1)); $("vtIn").value=it.in/R; $("vtOut").value=it.out/R;
   $("vtInTxt").textContent=fmtS(it.in/R); $("vtOutTxt").textContent=fmtS(it.out/R); $("vtLen").textContent="אורך בסרטון: "+itemLen(it).toFixed(1)+" שניות מתוך "+(it.dur/R).toFixed(1);
   const r=it.rate||1; $("vrate").value=Math.round(Math.log2(r)*100); $("vrateTxt").textContent=rateLabel(r); }
 function rateLabel(r){ const pc=Math.round(r*100); return pc===100?"100% (רגיל)":pc+"% · "+(r>1?"פי "+(Math.round(r*10)/10)+" מהר יותר":"פי "+(Math.round(10/r)/10)+" לאט יותר"); }
@@ -2756,7 +2786,14 @@ async function doSave(fname,base,ext){
 /* ----- free-text edit requests (uses Claude when available) ----- */
 let samplePromise=null;
 try{ samplePromise=window.claude&&window.claude.use?window.claude.use("sample"):null; }catch(e){ samplePromise=null; }
-if (samplePromise) samplePromise.then(s=>{ if (s) $("vaskBox").hidden=false; }).catch(()=>{});
+
+async function applyActionsAsync(acts){ let done=0; const rest=[];
+  for (const a of (acts||[])){
+    if (a&&(a.type==="cut"||a.type==="split")){ const n=applyActions(rest.splice(0)); done+=n; const i=(a.index|0)-1;
+      const r=a.type==="cut"?await clipCut(i,+a.start,+a.end,false):await clipCut(i,+a.at,+a.at+1,true);
+      if (["cut","split","start","end"].includes(r)){ done++; await refreshPoster(V.imgs[i]).catch(()=>{}); if (V.imgs[i+1]) await refreshPoster(V.imgs[i+1]).catch(()=>{}); } }
+    else rest.push(a); }
+  return done+applyActions(rest); }
 function applyActions(acts){
   let done=0;
   (acts||[]).forEach(a=>{ try{
@@ -2781,11 +2818,23 @@ function applyActions(acts){
   }catch(e){} });
   return done;
 }
+const ASK_MODELS=["gemini-3.6-flash","gemini-3.5-flash","gemini-flash-latest","gemini-3.5-flash-lite"];
+async function askGemini(prompt){ let last=null;
+  for (const mdl of ASK_MODELS){ try{
+    const r=await fetch(GEM_API+"/v1beta/models/"+mdl+":generateContent",{method:"POST",headers:{"x-goog-api-key":gemKey,"Content-Type":"application/json"},
+      body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{responseMimeType:"application/json",temperature:0.1}})});
+    const j=await r.json().catch(()=>({})); if (!r.ok){ const e=new Error((j.error&&j.error.message)||("HTTP "+r.status)); e.status=r.status; throw e; }
+    const t=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||"").join("");
+    return JSON.parse(t.replace(/^```(?:json)?|```$/g,"").trim()); }
+  catch(e){ last=e; if (!(e.status===404||e.status===400&&/model/i.test(e.message))) throw e; } }
+  throw last||new Error("no model"); }
+let askUndoIdx=null;
+$("vaskUndo").onclick=()=>{ if (askUndoIdx==null) return; histRestore(askUndoIdx); histCommit(); askUndoIdx=null; $("vaskUndo").hidden=true; $("vaskOut").textContent="התיקון בוטל, הכל חזר כמו שהיה."; };
 $("vaskGo").onclick=async()=>{
-  const req=$("vask").value.trim(), out=$("vaskOut"); if (!req) return;
+  const req=$("vask").value.trim(), out=$("vaskOut"); if (!req){ out.textContent="כותבים קודם מה לשנות."; return; }
   const sample=samplePromise?await samplePromise.catch(()=>null):null;
-  if (!sample){ out.textContent="האפשרות הזו לא זמינה כרגע. אפשר להזיז תמונות עם החצים ולבחור באפשרויות למטה."; return; }
-  out.textContent="חושב…"; $("vaskGo").disabled=true;
+  if (!sample && !gemKey){ out.innerHTML=""; out.textContent="כדי שזה יעבוד צריך את קוד החיבור של Gemini (אותו קוד של התמלול). בשלב 3 בוחרים ״Gemini של גוגל״, מדביקים את הקוד ושומרים, ומאז זה עובד כאן בכל השלבים."; return; }
+  out.textContent="שולח… Gemini מסדר את השינויים"; $("vaskGo").disabled=true;
   const stateTxt=JSON.stringify({items:V.imgs.map((m,i)=>m.kind==="vid"?{n:i+1,type:"video",clipLength:+m.dur.toFixed(1),start:+m.in.toFixed(1),end:+m.out.toFixed(1)}:{n:i+1,type:"photo",seconds:m.d}), style:V.style, styles:Object.fromEntries(VORDER.map(k=>[k,VSTYLES[k].name])),
     caption:{font:V.font,pos:V.pos,size:V.size,color:V.color,box:V.box,mode:V.mode}, captionOptions:Object.fromEntries(Object.entries(CAPOPTS).map(([k,o])=>[k,o.opts])),
     effects:V.imgs.map((m,i)=>[i+1,m.fx||"auto"]), effectOptions:VFX, music:V.musicKind, track:V.track+1, trackNames:MUSIC_NAMES, musicOptions:MUSIC_KINDS, clipVolumes:V.imgs.map((m,i)=>m.kind==="vid"?[i+1,m.mute?0:Math.round((m.vol==null?1:m.vol)*100)]:null).filter(Boolean), volume:Math.round(V.vol*100), duration:V.dur, durationOptions:[15,30,45,60,75,90], title:V.title, cap:V.cap, end:V.end});
@@ -2794,12 +2843,15 @@ Items (photos and video clips) are numbered from 1 in playing order; "images" in
 Reply ONLY with JSON: {"actions":[...],"reply":"short Hebrew sentence saying what you changed, or asking to clarify"}.
 Allowed actions: {"type":"move","from":N,"to":M} | {"type":"swap","a":N,"b":M} | {"type":"remove","index":N} | {"type":"reverse"} |
 {"type":"set","key":"font|pos|size|color|box|mode","value":<option id>} | {"type":"effect","index":N or 0 for all images,"value":<effect id>} | {"type":"style","value":<style id>} | {"type":"music","value":<music id>,"track":1-10} | {"type":"clipVolume","index":N,"value":0-150 (0 = mute)} | {"type":"clipSpeed","index":N,"value":0.25-10 (1 = normal)} | {"type":"addText","text":"...","at":sec,"seconds":sec,"pos":"top|middle|bottom","color":<color id>} | {"type":"moveVoice","at":sec (when the voice recording starts)} |
-{"type":"volume","value":0-100} | {"type":"duration","value":5-600 (fits photo times to this total)} | {"type":"photoDuration","index":N,"value":seconds} | {"type":"trim","index":N,"start":sec,"end":sec} | {"type":"text","field":"title|cap|end","value":"new full text"}.
+{"type":"volume","value":0-100} | {"type":"duration","value":5-600 (fits photo times to this total)} | {"type":"photoDuration","index":N,"value":seconds} | {"type":"trim","index":N,"start":sec,"end":sec} | {"type":"cut","index":N,"start":sec,"end":sec} (removes the part between start and end of video clip N; seconds are the clip's own time; two pieces remain side by side as items N and N+1) | {"type":"split","index":N,"at":sec} (splits clip N into two items) | {"type":"text","field":"title|cap|end","value":"new full text"}.
 Use only option ids from the state. Apply actions in order; after a move or remove the numbering changes accordingly. If the request cannot be done with these actions, return no actions and explain briefly in Hebrew.`;
-  try{ const r=await sample.json(prompt,{modelTier:"quick",cache:false});
-    const n=applyActions(r&&r.actions); vPrep(); vBuild(); vPreview();
-    out.textContent=(r&&r.reply)||(n?"בוצע ✓":"לא הבנתי. נסי לנסח אחרת."); if (n) $("vask").value="";
-  }catch(e){ out.textContent=e&&e.code==="not_granted"?"צריך לאשר את הבקשה כדי שזה יעבוד.":e&&e.code==="rate_limited"?"יותר מדי בקשות. נסי שוב בעוד רגע.":"לא הצלחתי לבצע. נסי שוב או השתמשי בחצים ובאפשרויות."; }
+  try{ const r=sample?await sample.json(prompt,{modelTier:"quick",cache:false}):await askGemini(prompt);
+    const before=snap();
+    const n=await applyActionsAsync(r&&r.actions); vPrep(); vBuild(); vPreview();
+    out.textContent=(r&&r.reply)||(n?"בוצע ✓":"לא הבנתי. נסו לנסח אחרת.");
+    if (n){ askUndoIdx=before; $("vaskUndo").hidden=false; $("vask").value=""; }
+  }catch(e){ const m=String(e&&e.message||e);
+    out.textContent=/API key not valid|API_KEY_INVALID|PERMISSION|401|403/i.test(m)?"Gemini לא קיבל את קוד החיבור. בדקו בשלב 3 שהקוד נכון.":/quota|RESOURCE_EXHAUSTED|429/i.test(m)?"יותר מדי בקשות ל־Gemini כרגע. נסו שוב בעוד דקה.":navigator.onLine===false?"אין אינטרנט.":"לא הצלחתי לבצע. נסו שוב ("+m.slice(0,80)+")"; }
   finally{ $("vaskGo").disabled=false; }
 };
 
