@@ -198,7 +198,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 47</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 48</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1230,7 +1230,10 @@ function voiceTake(){ return V.takes[V.voiceIdx]||null; }
 function takeLen(t){ return Math.max(.2,(t.out-t.in)/t.rate); }
 function itemLen(m){ return m.kind==="vid"?Math.max(.1,(m.out-m.in)/(m.rate||1)):m.d; }
 function vSum(){ return V.imgs.reduce((a,m)=>a+itemLen(m),0); }
-function vTotal(){ return V.imgs.length? vSum()+OUTRO : V.dur; }
+/* the video lasts until the last thing ends: pictures, recordings, sounds, texts or captions (the last picture stays on screen) */
+function vContentEnd(){ let e=0; try{ e=audEnd(null); }catch(x){}
+  (V.texts||[]).forEach(o=>{ if (o&&isFinite(o.at)) e=Math.max(e,o.at+(o.d||0)); }); (V.capT||[]).forEach(c=>{ if (c&&isFinite(c.e)) e=Math.max(e,c.e); }); return e; }
+function vTotal(){ return V.imgs.length? Math.max(vSum(),vContentEnd())+OUTRO : V.dur; }
 function fitTo(total){
   V.dur=total; if (!V.imgs.length) return;
   const main=Math.max(1,total-OUTRO), ph=V.imgs.filter(m=>m.kind!=="vid"), vids=V.imgs.filter(m=>m.kind==="vid"), vt=vids.reduce((a,m)=>a+itemLen(m),0);
