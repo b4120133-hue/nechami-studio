@@ -200,7 +200,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 51</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 52</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -583,9 +583,14 @@ input[type=range]{width:100%;accent-color:var(--gold)}
       </div>
 
       <div id="vaskBox" class="opt-group askBox">
-        <label class="label" for="vask">📝 הערות לתיקון (כותבים מה לשנות, ו־Gemini מסדר)</label>
+        <label class="label" for="vask">📝 הערות לתיקון (כותבים מה לשנות, ו־Claude מסדר)</label>
         <textarea id="vask" style="min-height:80px" placeholder="למשל: להחליף בין תמונה 1 לתמונה 3, ובין 5 ל־6. בסרטון 2 למחוק משנייה 4 עד 7. אפקט זום לתמונה 2. אותיות צהובות וגדולות."></textarea>
-        <div class="row"><button class="btn btn-gold btn-small" id="vaskGo" type="button">📨 שליחה ותיקון</button><button class="btn btn-ghost btn-small" id="vaskUndo" type="button" hidden>↶ ביטול התיקון</button></div>
+        <div class="row"><button class="btn btn-gold btn-small" id="vaskGo" type="button">📨 שליחה ל־Claude</button><button class="btn btn-ghost btn-small" id="vaskUndo" type="button" hidden>↶ ביטול התיקון</button></div>
+        <div id="vaskStep2" class="opt-group" hidden>
+          <label class="note" for="vaskPaste">התשובה של Claude:</label>
+          <textarea id="vaskPaste" dir="auto" style="min-height:56px;font-size:13px" placeholder="מדביקים כאן את מה ש־Claude ענה"></textarea>
+          <button class="btn btn-gold btn-small" id="vaskDo" type="button">📋 הדבקה וביצוע</button>
+        </div>
         <p class="note" id="vaskOut" aria-live="polite"></p>
       </div>
 
@@ -2830,11 +2835,7 @@ async function askGemini(prompt){ let last=null;
   throw last||new Error("no model"); }
 let askUndoIdx=null;
 $("vaskUndo").onclick=()=>{ if (askUndoIdx==null) return; histRestore(askUndoIdx); histCommit(); askUndoIdx=null; $("vaskUndo").hidden=true; $("vaskOut").textContent="התיקון בוטל, הכל חזר כמו שהיה."; };
-$("vaskGo").onclick=async()=>{
-  const req=$("vask").value.trim(), out=$("vaskOut"); if (!req){ out.textContent="כותבים קודם מה לשנות."; return; }
-  const sample=samplePromise?await samplePromise.catch(()=>null):null;
-  if (!sample && !gemKey){ out.innerHTML=""; out.textContent="כדי שזה יעבוד צריך את קוד החיבור של Gemini (אותו קוד של התמלול). בשלב 3 בוחרים ״Gemini של גוגל״, מדביקים את הקוד ושומרים, ומאז זה עובד כאן בכל השלבים."; return; }
-  out.textContent="שולח… Gemini מסדר את השינויים"; $("vaskGo").disabled=true;
+function askPrompt(req){
   const stateTxt=JSON.stringify({items:V.imgs.map((m,i)=>m.kind==="vid"?{n:i+1,type:"video",clipLength:+m.dur.toFixed(1),start:+m.in.toFixed(1),end:+m.out.toFixed(1)}:{n:i+1,type:"photo",seconds:m.d}), style:V.style, styles:Object.fromEntries(VORDER.map(k=>[k,VSTYLES[k].name])),
     caption:{font:V.font,pos:V.pos,size:V.size,color:V.color,box:V.box,mode:V.mode}, captionOptions:Object.fromEntries(Object.entries(CAPOPTS).map(([k,o])=>[k,o.opts])),
     effects:V.imgs.map((m,i)=>[i+1,m.fx||"auto"]), effectOptions:VFX, music:V.musicKind, track:V.track+1, trackNames:MUSIC_NAMES, musicOptions:MUSIC_KINDS, clipVolumes:V.imgs.map((m,i)=>m.kind==="vid"?[i+1,m.mute?0:Math.round((m.vol==null?1:m.vol)*100)]:null).filter(Boolean), volume:Math.round(V.vol*100), duration:V.dur, durationOptions:[15,30,45,60,75,90], title:V.title, cap:V.cap, end:V.end});
@@ -2845,15 +2846,34 @@ Allowed actions: {"type":"move","from":N,"to":M} | {"type":"swap","a":N,"b":M} |
 {"type":"set","key":"font|pos|size|color|box|mode","value":<option id>} | {"type":"effect","index":N or 0 for all images,"value":<effect id>} | {"type":"style","value":<style id>} | {"type":"music","value":<music id>,"track":1-10} | {"type":"clipVolume","index":N,"value":0-150 (0 = mute)} | {"type":"clipSpeed","index":N,"value":0.25-10 (1 = normal)} | {"type":"addText","text":"...","at":sec,"seconds":sec,"pos":"top|middle|bottom","color":<color id>} | {"type":"moveVoice","at":sec (when the voice recording starts)} |
 {"type":"volume","value":0-100} | {"type":"duration","value":5-600 (fits photo times to this total)} | {"type":"photoDuration","index":N,"value":seconds} | {"type":"trim","index":N,"start":sec,"end":sec} | {"type":"cut","index":N,"start":sec,"end":sec} (removes the part between start and end of video clip N; seconds are the clip's own time; two pieces remain side by side as items N and N+1) | {"type":"split","index":N,"at":sec} (splits clip N into two items) | {"type":"text","field":"title|cap|end","value":"new full text"}.
 Use only option ids from the state. Apply actions in order; after a move or remove the numbering changes accordingly. If the request cannot be done with these actions, return no actions and explain briefly in Hebrew.`;
-  try{ const r=sample?await sample.json(prompt,{modelTier:"quick",cache:false}):await askGemini(prompt);
-    const before=snap();
-    const n=await applyActionsAsync(r&&r.actions); vPrep(); vBuild(); vPreview();
-    out.textContent=(r&&r.reply)||(n?"בוצע ✓":"לא הבנתי. נסו לנסח אחרת.");
-    if (n){ askUndoIdx=before; $("vaskUndo").hidden=false; $("vask").value=""; }
-  }catch(e){ const m=String(e&&e.message||e);
-    out.textContent=/API key not valid|API_KEY_INVALID|PERMISSION|401|403/i.test(m)?"Gemini לא קיבל את קוד החיבור. בדקו בשלב 3 שהקוד נכון.":/quota|RESOURCE_EXHAUSTED|429/i.test(m)?"יותר מדי בקשות ל־Gemini כרגע. נסו שוב בעוד דקה.":navigator.onLine===false?"אין אינטרנט.":"לא הצלחתי לבצע. נסו שוב ("+m.slice(0,80)+")"; }
-  finally{ $("vaskGo").disabled=false; }
+  return prompt; }
+/* reads the answer Claude gave in the Claude app: finds the {"actions":...} part anywhere in the pasted text */
+function askParse(txt){ txt=String(txt||""); const k=txt.indexOf('{"actions"')>=0?txt.indexOf('{"actions"'):txt.indexOf("{"); if (k<0) return null;
+  let d=0, q=false, esc=false; for (let i=k;i<txt.length;i++){ const c=txt[i]; if (q){ if (esc) esc=false; else if (c==="\\") esc=true; else if (c==='"') q=false; continue; }
+    if (c==='"') q=true; else if (c==="{") d++; else if (c==="}"){ d--; if (!d){ try{ return JSON.parse(txt.slice(k,i+1)); }catch(e){ return null; } } } } return null; }
+async function askApply(r){ const out=$("vaskOut"); const before=snap();
+  const n=await applyActionsAsync(r&&r.actions); vPrep(); vBuild(); vPreview();
+  out.textContent=(r&&r.reply?r.reply+" ":"")+(n?"✓ בוצע.":"לא בוצע שום שינוי.");
+  if (n){ askUndoIdx=before; $("vaskUndo").hidden=false; $("vask").value=""; $("vaskPaste").value=""; } return n; }
+$("vaskGo").onclick=async()=>{
+  const req=$("vask").value.trim(), out=$("vaskOut"); if (!req){ out.textContent="כותבים קודם מה לשנות."; $("vask").focus(); return; }
+  const sample=samplePromise?await samplePromise.catch(()=>null):null;
+  const prompt=askPrompt(req);
+  if (sample){ out.textContent="שולח ל־Claude…"; $("vaskGo").disabled=true;
+    try{ await askApply(await sample.json(prompt,{modelTier:"quick",cache:false})); }catch(e){ out.textContent="לא הצלחתי. נסו שוב."; } finally{ $("vaskGo").disabled=false; } return; }
+  const msg="בקשת תיקון מהאפליקציה \"הקהילה של נחמי\". Claude: ענה רק בבלוק קוד אחד של JSON, בלי הסברים.\n\n"+prompt;
+  let copied=false; try{ await navigator.clipboard.writeText(msg); copied=true; }catch(e){}
+  const enc=encodeURIComponent(msg), short=enc.length<12000; const url="https://claude.ai/new"+(short?"?q="+enc:"");
+  window.open(url,"_blank","noopener");
+  $("vaskStep2").hidden=false;
+  out.textContent=short?"נפתח Claude עם הבקשה. שולחים שם, מעתיקים את התשובה שלו (כפתור ההעתקה שליד הקוד), חוזרים לכאן ולוחצים ״📋 הדבקה וביצוע״."
+    :(copied?"נפתח Claude, והבקשה כבר הועתקה: מדביקים בשורת הכתיבה של Claude ושולחים. אחר כך מעתיקים את התשובה, חוזרים לכאן ולוחצים ״📋 הדבקה וביצוע״.":"נפתח Claude. הבקשה ארוכה מדי להעברה אוטומטית ולא הצלחתי להעתיק אותה. נסו שוב.");
 };
+$("vaskDo").onclick=async()=>{ const out=$("vaskOut"); let txt=$("vaskPaste").value.trim();
+  if (!txt){ try{ txt=await navigator.clipboard.readText(); }catch(e){} }
+  if (!txt){ out.textContent="מדביקים את התשובה של Claude בתיבה (לחיצה ארוכה ← הדבקה), ואז לוחצים שוב."; $("vaskPaste").focus(); return; }
+  const r=askParse(txt); if (!r){ out.textContent="לא מצאתי בתשובה את הקוד של התיקון. מעתיקים את כל התשובה של Claude (כפתור ההעתקה שליד הקוד) ומדביקים שוב."; return; }
+  $("vaskPaste").value=txt; await askApply(r); };
 
 /* ----- tabs ----- */
 function showTab(which){
