@@ -198,7 +198,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 46</p>
+      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 47</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -489,7 +489,12 @@ input[type=range]{width:100%;accent-color:var(--gold)}
       <div class="step" data-step="3" hidden>
         <div>
           <span class="label">הכיתוב על הסרטון</span>
-          <div class="opt-group"><span class="note">מנוע התמלול</span><div class="chips" id="vtrKind"></div><p class="note" id="vtrKindNote"></p></div>
+          <div class="opt-group"><span class="note">מנוע התמלול</span><div class="chips" id="vtrKind"></div><p class="note" id="vtrKindNote"></p>
+            <div id="gemBox" class="opt-group" hidden>
+              <span class="note" id="gemState"></span>
+              <div class="row"><input type="password" id="gemKey" placeholder="הדבקת קוד החיבור (AIza…)" autocomplete="off" style="flex:1;min-width:160px;direction:ltr"><button class="btn btn-gold btn-small" id="gemSave" type="button">שמירה</button><button class="btn btn-ghost btn-small" id="gemClear" type="button">מחיקת הקוד</button></div>
+              <p class="note">איך משיגים קוד (פעם אחת, בחינם): נכנסים ל־<a dir="ltr" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#e8c468;font-weight:700">aistudio.google.com/apikey</a> עם חשבון הגוגל ← "Create API key" ← מעתיקים ומדביקים כאן. הקוד נשמר רק בטלפון הזה.</p>
+            </div></div>
           <button class="btn btn-gold" id="vtrans" type="button">✨ תמלול אוטומטי של הדיבור</button>
           <div class="row"><label class="btn btn-ghost" for="vsrt">📥 כתוביות מקאפקאט (קובץ SRT)</label><input class="hidden-input" type="file" id="vsrt"></div>
           <p class="note" id="vsrtNote">בקאפקאט: מעלים את אותה הקלטה ← "כתוביות אוטומטיות" ← מתקנים שם מילים אם צריך ← ייצוא ← מכבים "סרטון" ובוחרים רק כתוביות בפורמט SRT. כאן לוחצים על הכפתור ובוחרים את הקובץ.</p>
@@ -2072,6 +2077,7 @@ $("vtrans").onclick=async()=>{
   vTimeline().forEach(it=>{ const m=it.m; if (m.kind!=="vid"||m.mute||m.vol===0||!m.blob) return;
     jobs.push({get:async()=>{ if (!m.abuf){ const ab=await m.blob.arrayBuffer(); m.abuf=await new Promise((res,rej)=>{ const pr=AC().decodeAudioData(ab,res,rej); if (pr&&pr.then) pr.then(res,rej); }); } return to16k(m.abuf,m.in,m.out); },map:ts=>it.start+ts/(m.rate||1),end:it.start+it.dur}); });
   if (!jobs.length){ st.textContent="⚠️ אין דיבור לתמלל. קודם צריך הקלטה (בשלב 2), או סרטון עם קול."; st.classList.add("warn"); st.scrollIntoView({block:"center",behavior:"smooth"}); return; }
+  if (trKind==="gemini") return gemRun(jobs);
   if (!window.Worker||!window.OfflineAudioContext){ st.textContent="הדפדפן הזה לא תומך בתמלול. פתחי את האפליקציה בכרום."; return; }
   st.classList.remove("warn"); $("vtransErr").textContent="";
   trBusy=true; $("vtrans").disabled=true; $("vtransCancel").hidden=false; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="2%";
@@ -2114,8 +2120,76 @@ $("vtrans").onclick=async()=>{
   else st.textContent="לא נמצא דיבור לתמלל.";
 };
 $("vtransCancel").onclick=()=>{ if (trCancel) trCancel(); else { trKill(); } };
-function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["good","מדויק בעברית (מומלץ)"],["fast","מהיר"]],k=>trKind===k,k=>{ if (trBusy) return; trKind=k; if (k==="good"){ trNoGpu=false; try{ localStorage.removeItem("trNoGpu2"); }catch(e){} } trKill(); try{ localStorage.setItem("trKind2",k); }catch(e){} trKindUI(); });
-  $("vtrKindNote").textContent=trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים בערך חצי ג'יגה (עדיף ב־Wi‑Fi). אם הטלפון לא מתאים לו, האפליקציה עוברת לבד למנוע המהיר.":"מנוע כללי וקל יותר (בערך רבע ג'יגה). עם יותר טעויות בעברית."; }
+function trKindUI(){ const b=$("vtrKind"); b.innerHTML=""; chipGroup(b,[["gemini","Gemini של גוגל (הכי מדויק)"],["good","מדויק בטלפון"],["fast","מהיר"]],k=>trKind===k,k=>{ if (trBusy) return; trKind=k; if (k==="good"){ trNoGpu=false; try{ localStorage.removeItem("trNoGpu2"); }catch(e){} } trKill(); try{ localStorage.setItem("trKind2",k); }catch(e){} trKindUI(); });
+  gemUI(); $("vtrKindNote").textContent=trKind==="gemini"?"התמלול נעשה אצל גוגל, באינטרנט: מהיר ומדויק מאוד בעברית. צריך קוד חיבור חינמי של Gemini (פעם אחת). ההקלטה נשלחת לגוגל לתמלול.":trKind==="good"?"מנוע עברי של ivrit.ai, הרבה פחות טעויות. בפעם הראשונה מורידים בערך חצי ג'יגה (עדיף ב־Wi‑Fi). אם הטלפון לא מתאים לו, האפליקציה עוברת לבד למנוע המהיר.":"מנוע כללי וקל יותר (בערך רבע ג'יגה). עם יותר טעויות בעברית."; }
+/* ----- transcription with Google Gemini (needs the user's own free key from Google AI Studio) ----- */
+const GEM_MODEL="gemini-3.5-transcribe", GEM_API="https://generativelanguage.googleapis.com";
+let gemKey=""; try{ gemKey=localStorage.getItem("gemKey")||""; }catch(e){}
+function wav16(a){ const n=a.length, ab=new ArrayBuffer(44+n*2), v=new DataView(ab), w=(o,s)=>{ for (let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4,36+n*2,true); w(8,"WAVEfmt "); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,16000,true); v.setUint32(28,32000,true); v.setUint16(32,2,true); v.setUint16(34,16,true); w(36,"data"); v.setUint32(40,n*2,true);
+  for (let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,a[i])); v.setInt16(44+i*2,s<0?s*32768:s*32767,true); } return new Blob([ab],{type:"audio/wav"}); }
+const b64=blob=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]); r.onerror=rej; r.readAsDataURL(blob); });
+const secOf=x=>x==null?NaN:typeof x==="number"?x:typeof x==="string"?parseFloat(x):(+(x.seconds||0))+(+(x.nanos||0))/1e9;
+async function gemUpload(blob,signal){
+  const st=await fetch(GEM_API+"/upload/v1beta/files",{method:"POST",signal,headers:{"x-goog-api-key":gemKey,"X-Goog-Upload-Protocol":"resumable","X-Goog-Upload-Command":"start","X-Goog-Upload-Header-Content-Length":String(blob.size),"X-Goog-Upload-Header-Content-Type":"audio/wav","Content-Type":"application/json"},body:JSON.stringify({file:{display_name:"nechami-audio"}})});
+  const url=st.headers.get("x-goog-upload-url"); if (!st.ok||!url) throw new Error("upload start "+st.status+" "+(await st.text()).slice(0,150));
+  const up=await fetch(url,{method:"POST",signal,headers:{"X-Goog-Upload-Offset":"0","X-Goog-Upload-Command":"upload, finalize"},body:blob}); const j=await up.json();
+  if (!up.ok||!j.file) throw new Error("upload "+up.status+" "+JSON.stringify(j).slice(0,150)); let f=j.file;
+  for (let i=0;i<60&&f.state&&f.state!=="ACTIVE";i++){ await new Promise(r=>setTimeout(r,1500)); f=await (await fetch(GEM_API+"/v1beta/"+f.name,{signal,headers:{"x-goog-api-key":gemKey}})).json(); if (f.state==="FAILED") throw new Error("file failed"); }
+  return f; }
+async function gemAsk(part,signal){
+  const body={contents:[{role:"user",parts:[part]}],generationConfig:{audioTranscriptionConfig:{languageCodes:["he-IL"],wordTimestamp:true,mode:"SMART",customVocabulary:["נחמי","הקהילה של נחמי"]}}};
+  const r=await fetch(GEM_API+"/v1beta/models/"+GEM_MODEL+":generateContent",{method:"POST",signal,headers:{"x-goog-api-key":gemKey,"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({})); if (!r.ok){ const e=new Error((j.error&&j.error.message)||("HTTP "+r.status)); e.status=r.status; throw e; } return j; }
+/* pull every word with its time out of the answer, whatever shape it comes in */
+function gemWords(j){ const words=[]; let text="";
+  const walk=o=>{ if (!o||typeof o!=="object") return; if (Array.isArray(o)){ o.forEach(walk); return; }
+    if (typeof o.word==="string" && (o.startOffset!=null||o.startTime!=null)){ words.push({w:o.word,s:secOf(o.startOffset!=null?o.startOffset:o.startTime),e:secOf(o.endOffset!=null?o.endOffset:o.endTime)}); return; }
+    Object.keys(o).forEach(k=>walk(o[k])); };
+  ((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).forEach(p=>{ if (p.text) text+=p.text+" "; walk(p.audioTranscription||p); });
+  return {words:words.filter(x=>isFinite(x.s)&&x.w.trim()),text:text.trim()}; }
+function gemLines(words){ const out=[]; let cur=[];
+  const push=()=>{ if (!cur.length) return; out.push({text:cur.map(x=>x.w.trim()).join(" ").replace(/\s+([,.?!:;])/g,"$1"),s:cur[0].s,e:isFinite(cur[cur.length-1].e)?cur[cur.length-1].e:cur[cur.length-1].s+.4}); cur=[]; };
+  words.forEach((x,i)=>{ const prev=cur[cur.length-1]; if (prev && (x.s-(isFinite(prev.e)?prev.e:prev.s)>.7 || cur.length>=7)) push(); cur.push(x); if (/[.?!]$/.test(x.w.trim()) && cur.length>=3) push(); });
+  push(); return out; }
+async function gemRun(jobs){
+  const st=$("vtransNote");
+  if (!gemKey){ st.textContent="⚠️ קודם מדביקים את קוד החיבור של Gemini בתיבה למעלה, ולוחצים \"שמירה\"."; st.classList.add("warn"); $("gemKey").focus(); return; }
+  if (navigator.onLine===false){ st.textContent="⚠️ אין אינטרנט. Gemini צריך חיבור לאינטרנט."; return; }
+  st.classList.remove("warn"); $("vtransErr").textContent="";
+  trBusy=true; $("vtrans").disabled=true; $("vtransCancel").hidden=false; $("vtransBar").hidden=false; const fill=$("vtransFill"); fill.style.width="3%";
+  const ac=new AbortController(); trCancel=()=>ac.abort();
+  const t0=Date.now(); let msg=""; const show=()=>{ st.textContent=msg+"  ⏱ "+fmtClock((Date.now()-t0)/1000); }; const tick=setInterval(show,1000); const say=m=>{ msg=m; show(); };
+  st.scrollIntoView({block:"center",behavior:"smooth"});
+  const segs=[]; let err="", cancelled=false;
+  try{
+    for (let j=0;j<jobs.length;j++){ const job=jobs[j]; say(`מכין את השמע${jobs.length>1?` (${j+1} מתוך ${jobs.length})`:""}…`); const a=await job.get();
+      const CH=16000*240; const pieces=[]; for (let p=0;p<a.length;p+=CH) pieces.push({off:p/16000,a:a.subarray(p,Math.min(a.length,p+CH))});
+      for (let k=0;k<pieces.length;k++){ const pc=pieces[k], blob=wav16(pc.a);
+        say(`שולח ל־Gemini ומתמלל${pieces.length*jobs.length>1?` (חלק ${k+1} מתוך ${pieces.length}${jobs.length>1?`, הקלטה ${j+1}`:""})`:""}…`); fill.classList.add("pulse"); fill.style.width=Math.max(5,Math.round((j+k/pieces.length)/jobs.length*100))+"%";
+        let res;
+        try{ res=await gemAsk({inlineData:{mimeType:"audio/wav",data:await b64(blob)}},ac.signal); }
+        catch(e){ if (ac.signal.aborted) throw e; if (e.status===400||e.status===413){ say("מעלה את הקובץ ל־Gemini…"); const f=await gemUpload(blob,ac.signal); res=await gemAsk({fileData:{fileUri:f.uri,mimeType:"audio/wav"}},ac.signal); } else throw e; }
+        const {words,text}=gemWords(res); let lines=gemLines(words);
+        if (!lines.length && text){ const dur=pc.a.length/16000; lines=splitSeg(text,0,dur); }
+        lines.forEach(x=>{ const s=job.map(pc.off+x.s), e=Math.min(job.end,job.map(pc.off+x.e)); if (x.text) segs.push({text:x.text,s,e:Math.max(s+.4,e)}); });
+      } }
+  }catch(e){ if (ac.signal.aborted) cancelled=true; else err=String(e.message||e); }
+  clearInterval(tick); fill.classList.remove("pulse"); $("vtransBar").hidden=true; $("vtrans").disabled=false; $("vtransCancel").hidden=true; trBusy=false; trCancel=null;
+  if (cancelled){ st.textContent="התמלול בוטל."; return; }
+  if (segs.length){ segs.sort((a,b)=>a.s-b.s); segs.forEach((x,i)=>{ if (segs[i+1] && x.e>segs[i+1].s) x.e=segs[i+1].s; x.s=Math.round(x.s*10)/10; x.e=Math.round(Math.max(x.s+.4,x.e)*10)/10; });
+    V.capT=segs; vBuild(); vPreview(); st.textContent=`✓ Gemini תמלל ${segs.length} משפטים, כל אחד בזמן שלו. אפשר לתקן מילים ברשימה.`; return; }
+  st.classList.add("warn");
+  if (/API key not valid|API_KEY_INVALID|permission|PERMISSION_DENIED|401|403/i.test(err)) st.textContent="⚠️ Gemini לא קיבל את קוד החיבור. בדקו שהעתקתם את כל הקוד (מתחיל ב־AIza) ושמרו שוב.";
+  else if (/quota|RESOURCE_EXHAUSTED|429/i.test(err)) st.textContent="⚠️ עברתם את המכסה החינמית של Gemini להיום/לדקה. נסו שוב בעוד כמה דקות.";
+  else if (err) st.textContent="⚠️ התמלול ב־Gemini לא הצליח. נסו שוב.";
+  else st.textContent="לא נמצא דיבור לתמלל.";
+  $("vtransErr").textContent=err?"פרטים לבדיקה: "+err.slice(0,220):""; }
+function gemUI(){ const on=trKind==="gemini"; $("gemBox").hidden=!on; if (!on) return;
+  $("gemState").textContent=gemKey?"✓ קוד חיבור שמור ("+gemKey.slice(0,4)+"…"+gemKey.slice(-4)+")":"עוד אין קוד חיבור."; }
+$("gemSave").onclick=()=>{ const v=$("gemKey").value.trim(); if (!/^AIza[\w-]{20,}$/.test(v)){ $("gemState").textContent="⚠️ זה לא נראה כמו קוד חיבור. הקוד מתחיל ב־AIza ואורכו כ־39 תווים."; return; }
+  gemKey=v; try{ localStorage.setItem("gemKey",v); }catch(e){} $("gemKey").value=""; gemUI(); };
+$("gemClear").onclick=()=>{ gemKey=""; try{ localStorage.removeItem("gemKey"); }catch(e){} gemUI(); };
 /* captions file from CapCut (or any SRT / VTT) */
 function parseSrt(txt){ const out=[], tm=x=>{ const m=x.trim().replace(",",".").match(/(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)/); return m?(+(m[1]||0))*3600+(+m[2])*60+(+m[3]):NaN; };
   txt.replace(/\r/g,"").replace(/^\uFEFF/,"").split(/\n\s*\n/).forEach(bl=>{ const ls=bl.split("\n").map(l=>l.trim()).filter(Boolean); const k=ls.findIndex(l=>l.includes("-->")); if (k<0) return;
