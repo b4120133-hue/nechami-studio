@@ -192,6 +192,13 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 #videoView:not([hidden]) ~ * {}
 body.hasToolbar .wrap{padding-bottom:96px}
 #vGrid[hidden]{display:none!important}
+.trList{display:flex;flex-direction:column;gap:8px}
+.trItem{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;border:1px solid rgba(232,196,104,.25);background:rgba(255,255,255,.03);color:inherit;font:inherit;cursor:pointer;text-align:right}
+.trItem.on{border-color:#e8c468;background:rgba(232,196,104,.14)}
+.trItem canvas{border-radius:6px;flex:none}
+.trMid{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.trMid small{color:var(--muted)}
+.trBox{border:1px solid rgba(232,196,104,.35);border-radius:14px;padding:12px}
 .audRow{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(232,196,104,.25);border-radius:12px;margin-top:6px}
 .audRow.locked{border-color:#e8c468;background:rgba(232,196,104,.08)}
 .audName{flex:1;min-width:0;text-align:right;background:none;border:0;color:inherit;font:inherit;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0}
@@ -218,7 +225,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 56</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 57</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -340,6 +347,19 @@ body.hasToolbar .wrap{padding-bottom:96px}
       </nav>
 
       <div class="step" data-step="1">
+        <div class="opt-group trBox">
+          <span class="label">✨ מעברים בין התמונות</span>
+          <p class="note" style="margin:0">בוחרים מעבר (בין איזו תמונה לאיזו), ואז את סוג המעבר ואת האורך שלו.</p>
+          <div class="trList" id="trList"></div>
+          <div id="trEdit" class="itemPanel" hidden>
+            <span class="label" id="trTitle" style="margin:0"></span>
+            <div class="chips" id="trTypes"></div>
+            <span class="note">אורך המעבר</span>
+            <div class="chips" id="trLens"></div>
+            <div class="row"><input type="range" id="trLen" min="0.2" max="2.5" step="0.1" value="0.7" style="flex:1;min-width:140px" aria-label="אורך המעבר בשניות"><b id="trLenTxt">0.7 שנ׳</b></div>
+            <div class="row"><button class="btn btn-gold btn-small" id="trShow" type="button">▶ לראות את המעבר</button><button class="btn btn-ghost btn-small" id="trAll" type="button">להחיל על כל המעברים</button></div>
+          </div>
+        </div>
         <div>
           <span class="label">איזה סגנון סרטון?</span>
           <div class="sections" id="vstyles"></div>
@@ -1519,6 +1539,23 @@ function vMain(ctx,tm,main,S){
     else itemDraw(ctx,m,img,1.06+p*.12,dir*(p*2-1)*.6,(k%3-1)*.3,off,0,VW,VH);
     ctx.restore();
   };
+  const TRm=V.imgs[i].tr;
+  if (TRm && TRm.t && TRm.t!=="auto" && i<n-1){ const L=Math.max(.05,Math.min(TRm.len||.7,seg*.7,tl[i+1].dur*.7));
+    if (lt<=seg-L || TRm.t==="cut"){ draw(i,lt,1,0); return; }
+    const p=ease((lt-(seg-L))/L), nl=lt-seg+L, T=TRm.t, cur=()=>draw(i,lt,1,0), nxt=(a)=>draw(i+1,nl,a==null?1:a,0);
+    const at=(dx,dy,sc,rot,f)=>{ ctx.save(); ctx.translate(VW/2+dx,VH/2+dy); if (rot) ctx.rotate(rot); if (sc!=null) ctx.scale(sc,sc); ctx.translate(-VW/2,-VH/2); f(); ctx.restore(); };
+    if (T==="fade"){ cur(); nxt(p); }
+    else if (T==="slideL"){ at(p*VW,0,null,0,cur); at(-(1-p)*VW,0,null,0,()=>nxt()); }
+    else if (T==="slideR"){ at(-p*VW,0,null,0,cur); at((1-p)*VW,0,null,0,()=>nxt()); }
+    else if (T==="slideU"){ at(0,-p*VH,null,0,cur); at(0,(1-p)*VH,null,0,()=>nxt()); }
+    else if (T==="zoom"){ at(0,0,1+p*.5,0,cur); ctx.save(); ctx.globalAlpha=p; at(0,0,1.6-.6*p,0,()=>nxt()); ctx.restore(); }
+    else if (T==="zoomOut"){ cur(); at(0,0,.2+.8*p,0,()=>nxt()); }
+    else if (T==="spin"){ cur(); at(0,0,p,(1-p)*Math.PI*1.5,()=>nxt()); }
+    else if (T==="wipe"){ cur(); ctx.save(); ctx.beginPath(); ctx.rect(VW*(1-p),0,VW*p+1,VH); ctx.clip(); nxt(); ctx.restore(); }
+    else if (T==="circle"){ cur(); ctx.save(); ctx.beginPath(); ctx.arc(VW/2,VH/2,p*Math.hypot(VW,VH)/2+1,0,Math.PI*2); ctx.clip(); nxt(); ctx.restore(); }
+    else if (T==="flash"||T==="black"){ if (p<.5) cur(); else nxt(); ctx.save(); ctx.globalAlpha=1-Math.abs(2*p-1); ctx.fillStyle=T==="flash"?"#fff":"#000"; ctx.fillRect(0,0,VW,VH); ctx.restore(); }
+    else { cur(); nxt(p); }
+    return; }
   draw(i,lt,1,0);
   if (i<n-1 && lt>seg-tr){ const p=ease((lt-(seg-tr))/tr), nf=V.imgs[i+1].fx||"auto";
     if (nf==="static"){ if (p>.5) draw(i+1,0,1,0,1); }
@@ -1705,7 +1742,7 @@ function snap(){
   const o={}; SNAP_KEYS.forEach(k=>o[k]=V[k]);
   o.texts=V.texts.map(x=>({...x}));
   o.sounds=V.sounds.map(sd=>{ if (!sd.id) sd.id=++HIST.seq; HIST.reg.set(sd.id,sd); return [sd.id,sd.at,sd.in,sd.out,sd.vol,sd.rate||1,!!sd.lock]; });
-  o.items=V.imgs.map(m=>{ if (!m.id){ m.id=++HIST.seq; } HIST.reg.set(m.id,m); return [m.id,m.fx||"auto",m.d,m.in,m.out,m.vol,!!m.mute,m.rate||1,m.cz||1,m.cx||0,m.cy||0]; });
+  o.items=V.imgs.map(m=>{ if (!m.id){ m.id=++HIST.seq; } HIST.reg.set(m.id,m); return [m.id,m.fx||"auto",m.d,m.in,m.out,m.vol,!!m.mute,m.rate||1,m.cz||1,m.cx||0,m.cy||0,m.tr||null]; });
   return JSON.stringify(o);
 }
 function histCommit(){ if (HIST.lock) return;
@@ -1717,7 +1754,7 @@ function histRestore(str){
   const o=JSON.parse(str); HIST.lock=true;
   SNAP_KEYS.forEach(k=>V[k]=o[k]!==undefined?o[k]:JSON.parse(JSON.stringify(VDEF[k]===undefined?null:VDEF[k]))); if (!V.ov||typeof V.ov!=="object") V.ov={}; setOutro(); $("vLinkEndTxt").value=V.linkEndTxt||"";
   V.texts=(o.texts||[]).map(x=>({...x})); V.sounds=(o.sounds||[]).map(([id,at,i,out,vol,rate,lock])=>{ const sd=HIST.reg.get(id); Object.assign(sd,{at,in:i,out,vol,rate:rate||1,lock:!!lock}); return sd; }); V.rsel=null;
-  V.imgs=o.items.map(([id,fx,d,i,out,vol,mute,rate,cz,cx,cy])=>{ const m=HIST.reg.get(id); m.fx=fx; m.rate=rate||1; m.cz=cz||1; m.cx=cx||0; m.cy=cy||0; if (d!=null) m.d=d; if (i!=null){ m.in=i; m.out=out; } if (vol!=null) m.vol=vol; m.mute=mute; return m; });
+  V.imgs=o.items.map(([id,fx,d,i,out,vol,mute,rate,cz,cx,cy,tr])=>{ const m=HIST.reg.get(id); m.fx=fx; m.tr=tr||null; m.rate=rate||1; m.cz=cz||1; m.cx=cx||0; m.cy=cy||0; if (d!=null) m.d=d; if (i!=null){ m.in=i; m.out=out; } if (vol!=null) m.vol=vol; m.mute=mute; return m; });
   V.sel=-1; $("vtitle").value=V.title; $("vcap").value=V.cap; $("vend").value=V.end; $("vvol").value=Math.round(V.vol*100);
   vPrep(); vBuild(); vPreview(); HIST.lock=false; histButtons();
 }
@@ -1748,7 +1785,7 @@ function chipGroup(box,opts,isOn,onPick,swatch){
 }
 /* ----- timeline ruler ----- */
 const TL={pps:40, ptrs:new Map(), drag:null, pinch:null};
-function tlBuild(){ requestAnimationFrame(tlHeadShow);
+function tlBuild(){ requestAnimationFrame(tlHeadShow); try{ trUI(); }catch(e){}
   const has=V.imgs.length>0; $("tl").hidden=!has; if (!has) return;
   const pps=TL.pps, track=$("tlTrack"), ruler=$("tlRuler"), inner=$("tlInner");
   track.innerHTML=""; let acc=0;
@@ -1903,6 +1940,31 @@ function scrubTo(t){ t=Math.max(0,Math.min(vTotal()-.01,Math.round(t*100)/100));
     m.el.onseeked=()=>{ m.el.onseeked=null; if (TL.scrub===t) draw(); }; try{ m.el.currentTime=want; }catch(e){ draw(); } setTimeout(()=>{ if (TL.scrub===t) draw(); },400); }
   else draw(); }
 document.querySelectorAll("#tlNudge [data-d]").forEach(b=>b.onclick=()=>{ if (vRunning) return; scrubTo((TL.scrub||0)+(+b.dataset.d)); });
+/* ----- transitions between items ----- */
+const TR_TYPES=[["auto","אוטומטי (לפי הסגנון)"],["fade","התמזגות"],["cut","חיתוך חד"],["slideL","החלקה ימינה"],["slideR","החלקה שמאלה"],["slideU","החלקה למעלה"],["zoom","זום פנימה"],["zoomOut","קפיצה מהמרכז"],["spin","סיבוב"],["wipe","וילון"],["circle","עיגול נפתח"],["flash","הבזק לבן"],["black","החשכה"]];
+const TR_LENS=[[.3,"קצר ומהיר"],[.7,"רגיל"],[1.2,"ארוך"],[2,"ארוך מאוד ואיטי"]];
+let trSel=null;
+function trName(m){ const t=(m.tr&&m.tr.t)||"auto"; return (TR_TYPES.find(x=>x[0]===t)||TR_TYPES[0])[1]+(t!=="auto"&&t!=="cut"?` · ${(m.tr.len||.7).toFixed(1)} שנ׳`:""); }
+function trUI(){ const box=$("trList"); if (!box) return; box.innerHTML=""; const n=V.imgs.length; if (trSel!=null && trSel>=n-1) trSel=null;
+  if (n<2){ box.innerHTML='<p class="note">צריך לפחות שתי תמונות או סרטונים כדי שיהיה מעבר.</p>'; $("trEdit").hidden=true; return; }
+  for (let i=0;i<n-1;i++){ const m=V.imgs[i], b=document.createElement("button"); b.type="button"; b.className="trItem"+(trSel===i?" on":"");
+    const th=k=>{ const c=document.createElement("canvas"); c.width=44; c.height=60; try{ c.getContext("2d").drawImage(V.imgs[k].c,0,0,44,60); }catch(e){} return c; };
+    const mid=document.createElement("span"); mid.className="trMid"; mid.innerHTML=`<b>${i+1} ← ${i+2}</b><small>${trName(m)}</small>`;
+    b.append(th(i),mid,th(i+1)); b.onclick=()=>{ trSel=trSel===i?null:i; trUI(); if (trSel!=null){ trJump(); setTimeout(()=>$("trEdit").scrollIntoView({block:"nearest",behavior:"smooth"}),60); } };
+    box.appendChild(b); }
+  const ed=$("trEdit"); ed.hidden=trSel==null; if (trSel==null) return; const m=V.imgs[trSel], cur=m.tr||{t:"auto",len:.7};
+  $("trTitle").textContent=`המעבר בין ${trSel+1} ל־${trSel+2}`;
+  const tb=$("trTypes"); tb.innerHTML=""; chipGroup(tb,TR_TYPES,k=>(cur.t||"auto")===k,k=>{ m.tr={t:k,len:(m.tr&&m.tr.len)||.7}; trUI(); trShow(); });
+  const lb=$("trLens"); lb.innerHTML=""; chipGroup(lb,TR_LENS.map(([v,l])=>[String(v),l]),k=>Math.abs((cur.len||.7)-(+k))<.05,k=>{ m.tr={t:(m.tr&&m.tr.t)||"fade",len:+k}; trUI(); trShow(); });
+  $("trLen").value=cur.len||.7; $("trLenTxt").textContent=(cur.len||.7).toFixed(1)+" שנ׳"; }
+function trJunction(i){ const tl=vTimeline(); return tl[i]?tl[i].start+tl[i].dur:0; }
+function trJump(){ if (trSel==null) return; const m=V.imgs[trSel], L=(m.tr&&m.tr.len)||.7; scrubTo(Math.max(0,trJunction(trSel)-L/2)); }
+function trShow(){ if (trSel==null||vBusy) return; const m=V.imgs[trSel], L=(m.tr&&m.tr.len)||.7, j=trJunction(trSel);
+  vRun(false,{from:Math.max(0,j-L-1),until:Math.min(vTotal(),j+1.2)}); }
+$("trLen").oninput=e=>{ if (trSel==null) return; const m=V.imgs[trSel]; m.tr={t:(m.tr&&m.tr.t&&m.tr.t!=="auto")?m.tr.t:"fade",len:+e.target.value}; $("trLenTxt").textContent=(+e.target.value).toFixed(1)+" שנ׳"; };
+$("trLen").onchange=()=>{ trUI(); vPreview(); trShow(); };
+$("trShow").onclick=()=>trShow();
+$("trAll").onclick=()=>{ if (trSel==null) return; const tr=V.imgs[trSel].tr||{t:"auto",len:.7}; V.imgs.forEach((m,k)=>{ if (k<V.imgs.length-1) m.tr={...tr}; }); trUI(); vPreview(); $("vstatus").textContent="המעבר הוחל על כל המעברים."; };
 /* ----- split at the red line (like CapCut): videos, photos, the recording and sound rows ----- */
 function tlHeadShow(){ const hd=$("tlHead"); if (!hd||vRunning) return; vPlayLabel(); const lab=$("tlNow"); if (lab) lab.textContent=TL.scrub==null?"—":TL.scrub.toFixed(1)+" שנ׳"; if (TL.scrub==null){ hd.hidden=true; return; } hd.hidden=false; hd.style.right=(Math.min(TL.scrub,vTotal())*TL.pps)+"px"; }
 function sndSplitAt(o,t){ const r=o.rate||1, src=o.in+(t-o.at)*r; if (o.lock) return "lock"; if (!(src>o.in+.15&&src<o.out-.15)) return "edge";
@@ -2839,7 +2901,7 @@ async function vRun(record,opts){ opts=opts||{}; const silent=!!opts.silent; con
   const startPerf=performance.now()+(ac?(t0a-ac.currentTime)*1000:0)-from*1000; if (opts.onStart) opts.onStart(startPerf);
   vRunning=true;
   if (rec) rec.start(250);
-  const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000); vNowT=Math.min(t,T);
+  const loop=()=>{ const t=Math.max(0,(performance.now()-startPerf)/1000); vNowT=Math.min(t,T); if (opts.until && t>=opts.until && !vStopFlag){ vStopFlag=true; }
     vFrame(vctx,Math.min(t,T-.001),chunks); $("vbarFill").style.width=Math.min(100,t/T*100)+"%";
     V.sounds.forEach(sd=>{ const want=sd.in+(t-sd.at)*(sd.rate||1); if (sd.el.playbackRate!==(sd.rate||1)){ sd.el.playbackRate=sd.rate||1; sd.el.preservesPitch=true; }
       if (t>=sd.at && want<sd.out-.02 && t<T && !vStopFlag){ if (sd.el.paused){ try{ sd.el.currentTime=want; }catch(e){} sd.el.play().catch(()=>{}); } else if (Math.abs(sd.el.currentTime-want)>.3){ try{ sd.el.currentTime=want; }catch(e){} } }
