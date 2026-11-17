@@ -199,6 +199,8 @@ body.hasToolbar .wrap{padding-bottom:96px}
 .trMid{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
 .trMid small{color:var(--muted)}
 .trBox{border:1px solid rgba(232,196,104,.35);border-radius:14px;padding:12px}
+.audTop{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.audTop .bigBtn{min-height:64px;font-size:19px}
 .audRow{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(232,196,104,.25);border-radius:12px;margin-top:6px}
 .audRow.locked{border-color:#e8c468;background:rgba(232,196,104,.08)}
 .audName{flex:1;min-width:0;text-align:right;background:none;border:0;color:inherit;font:inherit;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0}
@@ -225,7 +227,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 57</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 58</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -534,16 +536,19 @@ body.hasToolbar .wrap{padding-bottom:96px}
 
       <div class="step" data-step="2" hidden>
         <p class="note" id="vclipNote" hidden>את הקול של כל סרטון שהעלית (השתקה, הנמכה או הגברה) קובעים בשלב 1: לוחצים על הסרטון.</p>
+        <div class="audTop">
+          <button class="bigBtn" id="aRec" type="button"><span>🎙</span>הקלטה על הסרטון</button>
+          <label class="bigBtn alt" for="sndFile"><span>📁</span>העלאת קבצי שמע</label>
+          <p class="note" style="margin:0">בהקלטה: ספירה 3‑2‑1, הסרטון מתחיל מההתחלה, ומדברים תוך כדי צפייה. כל הקלטה נשמרת ברשימה למטה. בהעלאה אפשר לבחור כמה קבצים ביחד, והם נכנסים לסרגל אחד אחרי השני.</p>
+        </div>
         <div class="opt-group">
-          <span class="label">הקלטות קוליות</span>
-          <p class="note">הכי נוח: הכפתור האדום <b>"🎙 הקלטה עם הסרטון"</b> שמתחת לסרטון. אפשר גם להקליט באפליקציה אחרת ולהעלות כאן:</p>
+          <span class="label">🎙 ההקלטות שלי</span>
           <div class="row">
-            <label class="btn btn-gold btn-small" for="vrec">הקלטה חדשה</label>
+            <label class="btn btn-ghost btn-small" for="vrec">הקלטה במקליט של הטלפון</label>
             <label class="btn btn-ghost btn-small" for="vvoice">בחירת קובץ הקלטה</label>
             <input class="hidden-input" type="file" id="vrec" accept="audio/*" capture>
             <input class="hidden-input" type="file" id="vvoice" accept="audio/*">
           </div>
-          <p class="note">אפשר להקליט כמה פעמים. כל הקלטה נשמרת כאן בצד: שומעים, חותכים, משנים מהירות, ובוחרים איזו נכנסת לסרטון. רוצה כמה הקלטות ביחד? לוחצים "➕ להוסיף לסרגל" על כל הקלטה, והן נכנסות אחת אחרי השנייה. בסרגל אפשר לגרור כל אחת למקום שלה.</p>
           <div id="vtakes" class="takes"></div>
         </div>
         <div class="opt-group">
@@ -2558,9 +2563,12 @@ function takesBuild(){
     use.onclick=()=>{ if (i===V.voiceIdx) V.voiceIdx=-1; else V.voiceIdx=i; vBuild(); vPreview(); };
     const del=document.createElement("button"); del.type="button"; del.className="btn btn-ghost btn-small"; del.textContent="מחיקה";
     del.onclick=()=>{ if (takePlaying===t) stopTakePreview(); V.takes.splice(i,1); if (V.voiceIdx===i) V.voiceIdx=-1; else if (V.voiceIdx>i) V.voiceIdx--; vBuild(); vPreview(); };
-    const add=document.createElement("button"); add.type="button"; add.className="btn btn-ghost btn-small"; add.textContent="➕ להוסיף לסרגל כעוד הקלטה";
+    const add=document.createElement("button"); add.type="button"; add.className="btn btn-ghost btn-small"; add.textContent="➕ עוד שורה בסרגל";
     add.onclick=()=>takeToTimeline(t);
-    ctr.append(pb,use,add,del);
+    const gear=document.createElement("button"); gear.type="button"; gear.className="btn btn-ghost btn-small"+(t._open?" on":""); gear.textContent=t._open?"⚙ סגירת ההגדרות":"⚙ הגדרות";
+    gear.onclick=()=>{ t._open=!t._open; takesBuild(); };
+    del.textContent="🗑 מחיקה";
+    ctr.append(pb,use,gear,add,del);
     const mk=(label,val,max,on)=>{ const R=t.rate||1, l=document.createElement("label"); l.className="note"; l.textContent=label+": "; const bb=document.createElement("b"); bb.textContent=fmtT(val/R); l.appendChild(bb);
       const r=document.createElement("input"); r.type="range"; r.min=0; r.max=(t.dur/R).toFixed(1); r.step=.1; r.value=val/R; r.setAttribute("aria-label",label);
       r.addEventListener("input",()=>{ on(+r.value*(t.rate||1)); bb.textContent=fmtT((label.includes("התח")?t.in:t.out)/(t.rate||1)); len.textContent=`${takeLen(t).toFixed(1)} שניות`; drawWave(cv,t,null); });
@@ -2582,7 +2590,12 @@ function takesBuild(){
     sr.addEventListener("change",()=>{ vBuild(); vPreview(); });
     spr.onclick=()=>{ t.rate=1; if (takePlaying===t) t.el.playbackRate=1; vBuild(); vPreview(); };
     const vb=document.createElement("div"); vb.className="opt-group"; vfxChips(vb,t);
-    card.append(head,cv,ctr,l1,r1,l2,r2,sp,vb); box.appendChild(card);
+    const vg=document.createElement("div"); vg.className="opt-group";
+    const vl=document.createElement("label"); vl.className="note"; const vv=Math.round((t.vol==null?1:t.vol)*100); vl.innerHTML=`עוצמה: <b>${vv}%</b>`;
+    const vr=document.createElement("input"); vr.type="range"; vr.min=0; vr.max=200; vr.step=5; vr.value=vv; vr.setAttribute("aria-label","עוצמת ההקלטה");
+    vr.addEventListener("input",()=>{ t.vol=+vr.value/100; vl.querySelector("b").textContent=vr.value+"%"; if (t.gain) t.gain.gain.value=t.vol; });
+    vr.addEventListener("change",()=>{ projTouch(); vPreview(); }); vg.append(vl,vr);
+    if (t._open) card.append(head,cv,ctr,vg,l1,r1,l2,r2,sp,vb); else card.append(head,cv,ctr); box.appendChild(card);
     requestAnimationFrame(()=>drawWave(cv,t,takePlaying===t?t.el.currentTime:null));
   });
 }
@@ -2929,6 +2942,7 @@ $("vplay").onclick=()=>{ const from=(TL.scrub!=null&&TL.scrub<vTotal()-.3)?TL.sc
 function vPlayLabel(){ const b=$("vplay"); if (!b) return; const t=TL.scrub; b.textContent=(t!=null&&t>.05&&t<vTotal()-.3)?`▶ המשך מ־${t.toFixed(1)}`:"▶ צפייה בסרטון"; }
 $("vmake").onclick=()=>vRun(true);
 $("vstop").onclick=()=>{ vStopFlag=true; };
+$("aRec").onclick=()=>{ $("vposter").scrollIntoView({block:"start",behavior:"smooth"}); $("vrecLive").click(); };
 $("tlStart").onclick=()=>{ if (vRunning) return; scrubTo(0); TL.scrub=null; tlHeadShow(); $("vstatus").textContent="חזרה להתחלה. ״צפייה״ מתחילה מההתחלה."; };
 $("vreplay").onclick=()=>{ const o=$("vout"); try{ o.currentTime=0; }catch(e){} o.play().catch(()=>{}); };
 $("vback").onclick=()=>{ $("vout").pause(); $("vout").hidden=true; vcan.hidden=false; $("vsave").hidden=true; $("vshare").hidden=true; $("vreplay").hidden=true; $("vback").hidden=true;
@@ -3117,7 +3131,7 @@ function blobOf(o){ if (!o.bid) o.bid=uid(); return o.blob; }
 function projState(){
   const cur=snap(), pool=[]; HIST.reg.forEach((o,id)=>{ if (!o.blob) return; blobOf(o);
     pool.push(o.kind?{id,kind:o.kind,bid:o.bid,fx:o.fx,d:o.d,in:o.in,out:o.out,vol:o.vol,mute:o.mute,rate:o.rate,cz:o.cz,cx:o.cx,cy:o.cy}:{id,snd:1,bid:o.bid,vfx:o.vfx||"",obid:o.vfx?o.obid:null,name:o.name,at:o.at,in:o.in,out:o.out,vol:o.vol,rate:o.rate||1,voice:!!o.voice,lock:!!o.lock}); });
-  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate,vfx:t.vfx||"",obid:t.vfx?t.obid:null,lock:!!t.lock}; });
+  const takes=V.takes.map(t=>{ blobOf(t); return {bid:t.bid,in:t.in,out:t.out,rate:t.rate,vfx:t.vfx||"",obid:t.vfx?t.obid:null,lock:!!t.lock,vol:t.vol==null?1:t.vol}; });
   if (V.ownMusicBlob && !V.ownMusicBid) V.ownMusicBid=uid(); if (V.tick2Blob && !V.tick2Bid){ V.tick2Bid=uid(); }
   return {cur, hist:{list:HIST.list,idx:HIST.idx,seq:HIST.seq}, pool, takes, voiceIdx:V.voiceIdx, ownMusicBid:V.ownMusicBid||null, musicName:V.musicName||"", step:V.step, tick2Bid:V.tick2Blob?V.tick2Bid:null};
 }
@@ -3185,7 +3199,7 @@ async function projOpen(id){ if (!$("home").hidden) setTimeout(()=>{ appGo("vide
       else { m=await imgItem(b); Object.assign(m,{fx:o.fx,d:o.d,cz:o.cz||1,cx:o.cx||0,cy:o.cy||0}); }
       m.id=o.id; m.bid=o.bid; m.blob=b; HIST.reg.set(o.id,m); }
     HIST.seq=S.hist.seq||HIST.seq;
-    for (const t of S.takes){ const b=await getB(t.bid); if (b) { const tk=await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); if (tk){ tk.vfx=t.vfx||""; tk.obid=t.obid||null; tk.lock=!!t.lock; } } }
+    for (const t of S.takes){ const b=await getB(t.bid); if (b) { const tk=await addTake(b,{silent:true,bid:t.bid,in:t.in,out:t.out,rate:t.rate}); if (tk){ tk.vfx=t.vfx||""; tk.obid=t.obid||null; tk.lock=!!t.lock; tk.vol=t.vol==null?1:t.vol; } } }
     V.voiceIdx=S.voiceIdx<V.takes.length?S.voiceIdx:-1;
     if (S.tick2Bid){ const b=await getB(S.tick2Bid); if (b){ try{ await setT2Img(b,S.tick2Bid); }catch(e){} } }
     if (S.ownMusicBid){ const b=await getB(S.ownMusicBid); if (b){ try{ V.ownMusic=await loadAudio(b); V.ownMusicBlob=b; V.ownMusicBid=S.ownMusicBid; V.musicName=S.musicName; }catch(e){} } }
