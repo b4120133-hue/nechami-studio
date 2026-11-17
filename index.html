@@ -19,7 +19,7 @@ html{background:var(--plum-900)}
 body{background:radial-gradient(1200px 700px at 50% -10%,var(--plum-600),var(--plum-800) 55%,var(--plum-900));background-color:var(--plum-900);color:var(--cream);font-family:var(--body);font-size:16px;min-height:100vh;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
 .wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
-header{display:flex;align-items:center;gap:14px;justify-content:center}
+header{display:flex;align-items:center;gap:14px;justify-content:center;position:relative}
 header img{width:64px;height:auto;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5))}
 header h1{font-family:var(--display);font-weight:400;font-size:clamp(22px,5vw,30px);margin:0;line-height:1.1;
   background:linear-gradient(180deg,var(--gold-hi),var(--gold) 55%,var(--gold-lo));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -176,6 +176,22 @@ input[type=range]{width:100%;accent-color:var(--gold)}
 .btn:disabled,input:disabled,select:disabled{opacity:.38;cursor:not-allowed}
 .askBox{border:1px solid rgba(232,196,104,.35);border-radius:14px;padding:12px;margin-top:10px}
 .cutBox{border-top:1px dashed rgba(232,196,104,.3);padding-top:10px;margin-top:6px}
+.home{display:flex;justify-content:center;padding:24px 0}
+.homeCol{display:flex;flex-direction:column;gap:14px;align-items:stretch;max-width:420px;margin:0 auto;width:100%}
+.homeQ{font-family:var(--display);font-size:24px;text-align:center;color:var(--gold-hi);margin:6px 0}
+.bigBtn{display:flex;align-items:center;justify-content:center;gap:12px;min-height:84px;border-radius:20px;border:0;font:inherit;font-size:22px;font-weight:800;cursor:pointer;
+  background:linear-gradient(180deg,#f4d98a,#d4a53c);color:#2a1240;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.bigBtn span{font-size:30px}
+.bigBtn.alt{background:rgba(255,255,255,.06);color:var(--cream);border:1.5px solid rgba(232,196,104,.5)}
+.addMenu{display:flex;flex-direction:column;gap:10px}
+.homeBtn{position:absolute;inset-inline-end:max(12px,env(safe-area-inset-left,0px));top:calc(10px + env(safe-area-inset-top,0px))}
+.toolbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:grid!important;grid-template-columns:repeat(5,1fr);gap:4px;margin:0!important;padding:8px max(8px,env(safe-area-inset-left,0px)) calc(8px + env(safe-area-inset-bottom,0px));
+  background:rgba(20,8,32,.96);border-top:1px solid rgba(232,196,104,.35);backdrop-filter:blur(8px)}
+.toolbar .stp{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:13px;min-height:58px}
+.toolbar .stp b{font-size:22px;background:none!important;width:auto!important;height:auto!important;box-shadow:none!important}
+#videoView:not([hidden]) ~ * {}
+body.hasToolbar .wrap{padding-bottom:96px}
+#vGrid[hidden]{display:none!important}
 .audRow{display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid rgba(232,196,104,.25);border-radius:12px;margin-top:6px}
 .audRow.locked{border-color:#e8c468;background:rgba(232,196,104,.08)}
 .audName{flex:1;min-width:0;text-align:right;background:none;border:0;color:inherit;font:inherit;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 0}
@@ -202,14 +218,31 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 55</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 56</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="סוג התוכן"><button class="tab" id="tabAds" type="button" role="tab" aria-selected="true">מודעות</button><button class="tab" id="tabVid" type="button" role="tab" aria-selected="false">סרטונים</button></nav>
+  <section id="home" class="home" aria-label="מסך פתיחה">
+    <div id="homeMain" class="homeCol">
+      <button class="bigBtn" id="hNew" type="button"><span>＋</span>פרויקט חדש</button>
+      <button class="bigBtn alt" id="hOpen" type="button"><span>📁</span>פרויקטים שמורים</button>
+    </div>
+    <div id="homeNew" class="homeCol" hidden>
+      <p class="homeQ">מה יוצרים?</p>
+      <button class="bigBtn" id="hNewVid" type="button"><span>🎬</span>סרטון</button>
+      <button class="bigBtn alt" id="hNewAd" type="button"><span>🖼</span>מודעה (תמונה לסטטוס)</button>
+      <button class="btn btn-ghost" id="hBack1" type="button">→ חזרה</button>
+    </div>
+    <div id="homeList" class="homeCol" hidden>
+      <p class="homeQ">פרויקטים שמורים</p>
+      <div id="hListSlot"></div>
+      <button class="btn btn-ghost" id="hBack2" type="button">→ חזרה</button>
+    </div>
+  </section>
+  <nav class="tabs" hidden role="tablist" aria-label="סוג התוכן"><button class="tab" id="tabAds" type="button" role="tab" aria-selected="true">מודעות</button><button class="tab" id="tabVid" type="button" role="tab" aria-selected="false">סרטונים</button></nav>
 
-  <div id="adsView">
+  <div id="adsView" hidden>
   <div class="grid">
     <section class="panel" aria-label="פרטי המודעה">
       <div>
@@ -277,9 +310,9 @@ input[type=range]{width:100%;accent-color:var(--gold)}
   </div>
   <div id="videoView" hidden>
   <div class="pjbar">
-    <button class="btn btn-ghost btn-small" id="pjOpenList" type="button">📁 הפרויקטים שלי</button>
+    <button class="btn btn-ghost btn-small" id="pjOpenList" type="button" hidden>📁 הפרויקטים שלי</button>
     <input type="text" id="pjName" aria-label="שם הפרויקט" placeholder="פרויקט חדש (יישמר לבד)">
-    <button class="btn btn-ghost btn-small" id="pjNew" type="button">+ פרויקט חדש</button>
+    <button class="btn btn-ghost btn-small" id="pjNew" type="button" hidden>+ פרויקט חדש</button>
     <span class="note" id="pjSaved"></span>
   </div>
   <div class="panel" id="pjPanel" hidden style="margin-bottom:16px">
@@ -287,13 +320,23 @@ input[type=range]{width:100%;accent-color:var(--gold)}
     <p class="note">כל סרטון שמתחילים נשמר כאן לבד, עם כל השינויים. הפרויקטים שמורים בטלפון הזה בלבד.</p>
     <div id="pjList" class="pjlist"></div>
   </div>
-  <div class="grid">
+  <div id="vEmpty" class="homeCol" hidden>
+    <p class="homeQ">מעלים תמונות וסרטונים</p>
+    <button class="bigBtn" id="vUpBig" type="button"><span>⬆</span>העלאה</button>
+    <div id="addMenu" class="addMenu" hidden>
+      <label class="btn btn-gold" for="vfiles">🖼 מהגלריה (תמונות וסרטונים)</label>
+      <label class="btn btn-ghost" for="vcamP">📷 צילום תמונה</label>
+      <label class="btn btn-ghost" for="vcamV">🎥 צילום סרטון</label>
+    </div>
+  </div>
+  <div class="grid" id="vGrid">
     <section class="panel" aria-label="עריכת הסרטון">
-      <nav class="steps" id="vsteps" aria-label="שלבי העבודה">
-        <button type="button" class="stp" data-go="1"><b>1</b>תמונות ואפקטים</button>
-        <button type="button" class="stp" data-go="2"><b>2</b>הקלטה ומוזיקה</button>
-        <button type="button" class="stp" data-go="3"><b>3</b>כיתוב</button>
-        <button type="button" class="stp" data-go="4"><b>4</b>בדיקה ושמירה</button>
+      <nav class="steps toolbar" id="vsteps" aria-label="כלים">
+        <button type="button" class="stp" data-go="1"><b>✨</b>אפקטים</button>
+        <button type="button" class="stp" data-go="2"><b>🎵</b>שמע</button>
+        <button type="button" class="stp" data-go="3"><b>💬</b>כיתובים</button>
+        <button type="button" class="stp" data-go="5"><b>➕</b>תוספות</button>
+        <button type="button" class="stp" data-go="4"><b>✅</b>סיום</button>
       </nav>
 
       <div class="step" data-step="1">
@@ -316,6 +359,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
             <div class="row tl-bar">
               <button class="btn btn-ghost btn-small" id="tlOut" type="button" aria-label="הקטנת הסרגל">−</button>
               <button class="btn btn-ghost btn-small" id="tlIn" type="button" aria-label="הגדלת הסרגל">+</button>
+              <button class="btn btn-ghost btn-small" id="tlAdd" type="button">➕ הוספה</button>
               <button class="btn btn-gold btn-small" id="tlSplit" type="button">✂️ פיצול</button>
             </div>
             <div class="row" id="tlNudge" style="justify-content:center;gap:6px;direction:ltr">
@@ -382,9 +426,9 @@ input[type=range]{width:100%;accent-color:var(--gold)}
             <p class="note"><b style="color:var(--gold-hi)">הכי פשוט:</b> לוחצים על פריט בסרגל, ונפתח חלון עם כל ההגדרות שלו. אפשר גם לגרור פריטים, למשוך את הידית הזהובה בקצה, ולהגדיל את הסרגל עם שתי אצבעות. לחיצה על פס המספרים מראה את הרגע הזה בתצוגה. את ההקלטה, הסאונדים והטקסטים גוררים ימינה ושמאלה כדי לקבוע מתי הם מתחילים.</p>
           </div></div>
           <div class="row">
-            <label class="btn btn-ghost btn-small" for="vfiles">הוספת תמונות וסרטונים</label>
-            <label class="btn btn-ghost btn-small" for="vcamP">📷 צילום תמונה</label>
-            <label class="btn btn-ghost btn-small" for="vcamV">🎥 צילום וידאו</label>
+            <label class="btn btn-ghost btn-small" for="vfiles" hidden>הוספת תמונות וסרטונים</label>
+            <label class="btn btn-ghost btn-small" for="vcamP" hidden>📷 צילום תמונה</label>
+            <label class="btn btn-ghost btn-small" for="vcamV" hidden>🎥 צילום וידאו</label>
             <input class="hidden-input" type="file" id="vfiles" accept="image/*,video/*" multiple>
             <input class="hidden-input" type="file" id="vcamP" accept="image/*" capture="environment">
             <input class="hidden-input" type="file" id="vcamV" accept="video/*" capture="environment">
@@ -535,6 +579,9 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <div class="audio-row"><span class="hint" id="fontName">אפשר להעלות פונט משלך (קובץ TTF או OTF), והוא יופיע ב"הפונט שלי".</span>
           <label class="btn btn-ghost btn-small" for="fontFile">העלאת פונט</label>
           <input class="hidden-input" type="file" id="fontFile" accept=".ttf,.otf,.woff,.woff2,font/*,application/font-sfnt,application/x-font-ttf,application/octet-stream"></div>
+      </div>
+
+      <div class="step" data-step="5" hidden>
         <div class="opt-group">
           <span class="label">תוספות (לא חובה)</span>
           <div class="chips"><button class="chip" id="vCorner" type="button" aria-pressed="true">הלוגו בפינה</button><button class="chip" id="vOutro" type="button" aria-pressed="false">מסך סיום עם הלוגו</button><button class="chip" id="vName" type="button" aria-pressed="false">שם הסגנון בפס למעלה</button><button class="chip" id="vLink" type="button" aria-pressed="false">"כנסו לקישור" עם חיצים</button><button class="chip" id="vSpk" type="button" aria-pressed="false">סמל רמקול בפינה</button><button class="chip" id="vTick2" type="button" aria-pressed="false">באנר רץ למעלה</button><button class="chip" id="vTick" type="button" aria-pressed="false">באנר רץ למטה</button><button class="chip" id="vLinkEnd" type="button" aria-pressed="false">עמוד "כנסו לקישור" בסוף</button></div>
@@ -588,6 +635,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <div class="saveBox">
           <button class="btn btn-wa" id="vshareAll" type="button" style="font-size:19px;padding:16px">📤 שליחה לוואטסאפ</button>
           <p class="note" id="vshareNote">שולח את הסרטון ישר לוואטסאפ, בלי לשמור קובץ בטלפון. בוואטסאפ אפשר לסמן כמה אנשים ביחד וגם "הסטטוס שלי".</p>
+          <button class="btn btn-ghost" id="vshareOther" type="button">✉️ שליחה במייל או באפליקציה אחרת</button>
           <button class="btn btn-gold" id="vsaveAll" type="button">💾 שמירת הסרטון לטלפון</button>
           <p class="note" id="vsaveNote">יוצר את הסרטון הסופי ושומר אותו בתיקיית ההורדות בשם שמתחיל ב־Nechami-Community. היצירה לוקחת כאורך הסרטון, לא לצאת מהמסך בזמן הזה.</p>
         </div>
@@ -606,7 +654,7 @@ input[type=range]{width:100%;accent-color:var(--gold)}
         <p class="note" id="vaskOut" aria-live="polite"></p>
       </div>
 
-      <div class="row stepnav">
+      <div class="row stepnav" hidden>
         <button class="btn btn-ghost btn-small" id="vprev" type="button">→ הקודם</button>
         <button class="btn btn-gold btn-small" id="vnext" type="button">הבא ←</button>
       </div>
@@ -2079,7 +2127,7 @@ $("ovClose").onclick=()=>{ ovSel=null; ovSelBox(); };
   cv.addEventListener("pointerup",end); cv.addEventListener("pointercancel",end);
 })();
 /* ----- framing: pinch to zoom, drag to move ----- */
-function cropOn(){ return V.sel>=0 && V.imgs[V.sel] && !vBusy && $("vout").hidden && V.step===1; }
+function cropOn(){ return V.sel>=0 && V.imgs[V.sel] && !vBusy && $("vout").hidden && !$("vitem").hidden; }
 function cropUI(it){ const cz=it.cz||1; $("vcz").value=Math.round(Math.log2(cz)*100); $("vczTxt").textContent=Math.round(cz*100)+"%"; }
 function cropTime(){ const tl=vTimeline(), it=tl[V.sel]; return it?it.start+Math.min(1.2,it.dur*.5):.9; }
 function cropDraw(){ if (!vBgC) vPrep(); vDrawPreview(cropTime()); }
@@ -2356,7 +2404,7 @@ $("vLink").onclick=()=>{ V.link=!V.link; vBuild(); vPreview(); };
 $("vSpk").onclick=()=>{ V.spk=!V.spk; vBuild(); vPreview(); };
 function vSteps(){
   setTimeout(cropState,0);
-  { const tl=$("tl"), dest=$("tlPrev"); if (tl.parentNode!==dest) dest.appendChild(tl); $("videoView").classList.toggle("s4",V.step===4); }
+  { const tl=$("tl"), dest=$("tlPrev"); if (tl.parentNode!==dest) dest.appendChild(tl); const it=$("vitem"); if (it.parentNode!==dest) dest.appendChild(it); vEmptyUI(); $("videoView").classList.toggle("s4",V.step===4); }
   $("vTick2").setAttribute("aria-pressed",V.tick2); $("vTick2Box").hidden=!V.tick2; if (document.activeElement!==$("vTick2Txt")) $("vTick2Txt").value=V.tick2Txt||"";
   $("vT2Logo").setAttribute("aria-pressed",V.tick2Logo); $("vT2Pic").hidden=!V.tick2Img; if (V.tick2Img) $("vT2Pic").src=V.tick2Img.toDataURL(); $("vT2Rm").hidden=!V.tick2Img; $("vT2PicTxt").textContent=V.tick2Img?"התמונה בבאנר":"לוגו או תמונה נוספים (לא חובה)";
   { const sp=$("vTick2Sp"); sp.innerHTML=""; chipGroup(sp,[[.6,"איטי"],[1,"רגיל"],[1.6,"מהיר"]],v=>Math.abs((V.tick2Speed||1)-v)<.01,v=>{ V.tick2Speed=v; vBuild(); vPreviewAt2(1); }); }
@@ -2375,7 +2423,7 @@ function vSteps(){
 }
 document.querySelectorAll("#vsteps .stp").forEach(b=>b.onclick=()=>{ V.step=+b.dataset.go; if (V.step<4) vInvalidate(); vSteps(); });
 $("vprev").onclick=()=>{ V.step=Math.max(1,V.step-1); vInvalidate(); vSteps(); $("vsteps").scrollIntoView({block:"nearest"}); };
-$("vnext").onclick=()=>{ V.step=Math.min(4,V.step+1); vSteps(); $("vsteps").scrollIntoView({block:"nearest"}); };
+$("vnext").onclick=()=>{ V.step=Math.min(5,V.step+1); vSteps(); $("vsteps").scrollIntoView({block:"nearest"}); };
 [["vtitle","title"],["vcap","cap"],["vend","end"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{ V[k]=e.target.value; vPreview(); }));
 $("vvol").addEventListener("input",e=>{ V.vol=e.target.value/100; });
 async function imgItem(f){ const url=URL.createObjectURL(f); const im=await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
@@ -2951,6 +2999,22 @@ $("tabAds").onclick=()=>{ try{ history.replaceState(null,"","#"+cur);}catch(e){}
 $("tabVid").onclick=()=>{ try{ history.replaceState(null,"","#video");}catch(e){} showTab("video"); };
 window.addEventListener("hashchange",()=>{ showTab(location.hash==="#video"?"video":"ads"); });
 
+/* ================= HOME / NAVIGATION ================= */
+function appGo(where){ $("home").hidden=where!=="home"; $("goHome").hidden=where==="home";
+  if (where==="home"){ $("adsView").hidden=true; $("videoView").hidden=true; ["homeMain"].forEach(id=>$(id).hidden=false); ["homeNew","homeList"].forEach(id=>$(id).hidden=true); document.body.classList.remove("hasToolbar"); $("hdrSub").textContent="סטודיו לסטטוסים של הקהילה"; return; }
+  showTab(where==="video"?"video":"ads"); vEmptyUI(); }
+function vEmptyUI(){ const empty=!V.imgs.length, vis=!$("videoView").hidden; $("vEmpty").hidden=!empty; $("vGrid").hidden=empty; $("addMenu").hidden=true;
+  document.body.classList.toggle("hasToolbar",vis&&!empty); $("vsteps").hidden=!(vis&&!empty); }
+$("hNew").onclick=()=>{ $("homeMain").hidden=true; $("homeNew").hidden=false; };
+$("hOpen").onclick=()=>{ $("homeMain").hidden=true; $("homeList").hidden=false; $("hListSlot").appendChild($("pjList")); projList(); };
+$("hBack1").onclick=$("hBack2").onclick=()=>appGo("home");
+$("hNewVid").onclick=async()=>{ if (PJ.cur){ clearTimeout(PJ.timer); try{ await projSave(); }catch(e){} } projNew(true); V.step=1; appGo("video"); vBuild(); };
+$("hNewAd").onclick=()=>appGo("ads");
+$("goHome").onclick=async()=>{ if (PJ.cur && V.imgs.length){ clearTimeout(PJ.timer); try{ await projSave(); }catch(e){} } appGo("home"); };
+$("vUpBig").onclick=()=>{ $("addMenu").hidden=!$("addMenu").hidden; };
+$("tlAdd").onclick=()=>{ const m=$("addMenu"); $("vEmpty").hidden=false; $("vEmpty").querySelector(".homeQ").textContent="להוסיף עוד"; $("vUpBig").hidden=true; m.hidden=false; $("vEmpty").scrollIntoView({block:"center",behavior:"smooth"}); };
+["vfiles","vcamP","vcamV"].forEach(id=>$(id).addEventListener("change",()=>setTimeout(()=>{ $("vUpBig").hidden=false; $("vEmpty").querySelector(".homeQ").textContent="מעלים תמונות וסרטונים"; vEmptyUI(); },400)));
+$("vshareOther").onclick=()=>$("vshareAll").click();
 /* ================= RECORD WHILE WATCHING ================= */
 async function recWhileWatching(){
   const st=$("vstatus"); $("vrecHelp").hidden=true;
@@ -3046,7 +3110,7 @@ function projNew(silent){
   vPrep(); vBuild(); HIST.list=[snap()]; HIST.idx=0; histButtons(); vPreview(); $("pjSaved").textContent="";
   if (!silent) $("vstatus").textContent="פרויקט חדש. הוא יישמר לבד ברגע שתוסיפי משהו.";
 }
-async function projOpen(id){
+async function projOpen(id){ if (!$("home").hidden) setTimeout(()=>{ appGo("video"); vBuild(); },0);
   const st=$("vstatus"); clearTimeout(PJ.timer); if (PJ.cur && !PJ.loading) await projSave();
   let p; try{ p=await tx("projects","readonly",s=>s.get(id)); }catch(e){ p=null; }
   if (!p){ st.textContent="לא מצאתי את הפרויקט."; return; }
@@ -3081,6 +3145,6 @@ $("vrecLive").onclick=recWhileWatching;
 const VDEF={}; SNAP_KEYS.forEach(k=>{ try{ VDEF[k]=JSON.parse(JSON.stringify(V[k]===undefined?null:V[k])); }catch(e){ VDEF[k]=null; } });
 vBuild();
 HIST.list=[snap()]; HIST.idx=0; histButtons(); projBar();
-showTab(location.hash==="#video"?"video":"ads");
+appGo(location.hash==="#video"?"video":"home");
 </script>
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script></body></html>
