@@ -227,7 +227,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 58</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 59</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -241,6 +241,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
       <p class="homeQ">מה יוצרים?</p>
       <button class="bigBtn" id="hNewVid" type="button"><span>🎬</span>סרטון</button>
       <button class="bigBtn alt" id="hNewAd" type="button"><span>🖼</span>מודעה (תמונה לסטטוס)</button>
+      <button class="bigBtn alt" id="hNewGfx" type="button"><span>🎨</span>גרפיקה מעוצבת (Claude מעצב)</button>
       <button class="btn btn-ghost" id="hBack1" type="button">→ חזרה</button>
     </div>
     <div id="homeList" class="homeCol" hidden>
@@ -251,6 +252,39 @@ body.hasToolbar .wrap{padding-bottom:96px}
   </section>
   <nav class="tabs" hidden role="tablist" aria-label="סוג התוכן"><button class="tab" id="tabAds" type="button" role="tab" aria-selected="true">מודעות</button><button class="tab" id="tabVid" type="button" role="tab" aria-selected="false">סרטונים</button></nav>
 
+  <div id="gfxView" class="homeCol gfx" hidden>
+    <p class="homeQ">🎨 גרפיקה מעוצבת</p>
+    <label class="label" for="gText">1. הטקסט של המודעה</label>
+    <textarea id="gText" style="min-height:120px" placeholder="כותבים או מדביקים כאן את כל הטקסט, בדיוק כמו שצריך להופיע במודעה (כותרת, פרטים, טלפון…)"></textarea>
+    <label class="label" for="gDesc">2. איזה סגנון? (במילים שלך)</label>
+    <textarea id="gDesc" style="min-height:70px" placeholder="למשל: מודרני, צבעי סגול וזהב, הרבה אוויר, כותרת ענקית, תחושה של AI"></textarea>
+    <div class="chips" id="gStyles"></div>
+    <span class="label">3. תמונה או סרטון קצר?</span>
+    <div class="chips" id="gFmt"></div>
+    <div class="chips" id="gSecs" hidden></div>
+    <span class="label">4. תמונה במודעה (לא חובה)</span>
+    <div class="row"><label class="btn btn-ghost btn-small" for="gPhoto">📷 תמונה למודעה</label><input class="hidden-input" type="file" id="gPhoto" accept="image/*">
+      <button class="btn btn-ghost btn-small" id="gGpt" type="button">🖼 תמונת רקע מ־ChatGPT</button>
+      <button class="btn btn-ghost btn-small" id="gPhotoRm" type="button" hidden>הסרת התמונה</button></div>
+    <img id="gPhotoPic" alt="התמונה שנבחרה" hidden style="max-width:140px;border-radius:12px">
+    <label class="check" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="gLogo" checked> <span>לשים את הלוגו של הקהילה</span></label>
+    <button class="bigBtn" id="gAsk" type="button" style="min-height:70px;font-size:20px"><span>✨</span>עיצוב עם Claude</button>
+    <div id="gStep2" class="opt-group" hidden>
+      <label class="note" for="gPaste">הקוד ש־Claude כתב:</label>
+      <textarea id="gPaste" dir="ltr" style="min-height:56px;font-size:13px" placeholder="מדביקים כאן (או לוחצים ישר על הכפתור, והוא מדביק לבד)"></textarea>
+      <button class="btn btn-gold" id="gPasteGo" type="button">📋 הדבקה והצגה</button>
+    </div>
+    <p class="note" id="gOut" aria-live="polite"></p>
+    <div id="gResult" class="opt-group" hidden>
+      <canvas id="gCan" width="1080" height="1920" style="width:100%;max-width:340px;align-self:center;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.5)"></canvas>
+      <div id="gVidRow" class="opt-group" hidden>
+        <div class="row"><button class="btn btn-ghost btn-small" id="gReplay" type="button">▶ לראות שוב את ההנפשה</button><button class="btn btn-gold btn-small" id="gVidMake" type="button">🎬 ליצור סרטון</button></div>
+        <div class="row"><button class="btn btn-wa" id="gVidShare" type="button" hidden>📤 שליחת הסרטון לוואטסאפ</button><button class="btn btn-ghost btn-small" id="gVidSave" type="button" hidden>💾 שמירת הסרטון</button></div>
+      </div>
+      <button class="btn btn-wa" id="gShare" type="button">📤 שליחת התמונה לוואטסאפ</button>
+      <div class="row"><button class="btn btn-ghost btn-small" id="gSave" type="button">💾 שמירה בטלפון</button><button class="btn btn-ghost btn-small" id="gAgain" type="button">🔁 עיצוב אחר</button></div>
+    </div>
+  </div>
   <div id="adsView" hidden>
   <div class="grid">
     <section class="panel" aria-label="פרטי המודעה">
@@ -3076,7 +3110,8 @@ $("tabVid").onclick=()=>{ try{ history.replaceState(null,"","#video");}catch(e){
 window.addEventListener("hashchange",()=>{ showTab(location.hash==="#video"?"video":"ads"); });
 
 /* ================= HOME / NAVIGATION ================= */
-function appGo(where){ $("home").hidden=where!=="home"; $("goHome").hidden=where==="home";
+function appGo(where){ $("home").hidden=where!=="home"; $("goHome").hidden=where==="home"; $("gfxView").hidden=where!=="gfx";
+  if (where==="gfx"){ $("adsView").hidden=true; $("videoView").hidden=true; document.body.classList.remove("hasToolbar"); $("hdrSub").textContent="כותבים טקסט וסגנון ← Claude מעצב מודעה"; return; }
   if (where==="home"){ $("adsView").hidden=true; $("videoView").hidden=true; ["homeMain"].forEach(id=>$(id).hidden=false); ["homeNew","homeList"].forEach(id=>$(id).hidden=true); document.body.classList.remove("hasToolbar"); $("hdrSub").textContent="סטודיו לסטטוסים של הקהילה"; return; }
   showTab(where==="video"?"video":"ads"); vEmptyUI(); }
 function vEmptyUI(){ const empty=!V.imgs.length, vis=!$("videoView").hidden; $("vEmpty").hidden=!empty; $("vGrid").hidden=empty; $("addMenu").hidden=true;
@@ -3086,11 +3121,161 @@ $("hOpen").onclick=()=>{ $("homeMain").hidden=true; $("homeList").hidden=false; 
 $("hBack1").onclick=$("hBack2").onclick=()=>appGo("home");
 $("hNewVid").onclick=async()=>{ if (PJ.cur){ clearTimeout(PJ.timer); try{ await projSave(); }catch(e){} } projNew(true); V.step=1; appGo("video"); vBuild(); };
 $("hNewAd").onclick=()=>appGo("ads");
+$("hNewGfx").onclick=()=>appGo("gfx");
 $("goHome").onclick=async()=>{ if (PJ.cur && V.imgs.length){ clearTimeout(PJ.timer); try{ await projSave(); }catch(e){} } appGo("home"); };
 $("vUpBig").onclick=()=>{ $("addMenu").hidden=!$("addMenu").hidden; };
 $("tlAdd").onclick=()=>{ const m=$("addMenu"); $("vEmpty").hidden=false; $("vEmpty").querySelector(".homeQ").textContent="להוסיף עוד"; $("vUpBig").hidden=true; m.hidden=false; $("vEmpty").scrollIntoView({block:"center",behavior:"smooth"}); };
 ["vfiles","vcamP","vcamV"].forEach(id=>$(id).addEventListener("change",()=>setTimeout(()=>{ $("vUpBig").hidden=false; $("vEmpty").querySelector(".homeQ").textContent="מעלים תמונות וסרטונים"; vEmptyUI(); },400)));
 $("vshareOther").onclick=()=>$("vshareAll").click();
+/* ================= GRAPHICS: text + style -> designed ad (Claude writes the design as SVG) ================= */
+const GFX_FONTS=["Heebo","Rubik","Assistant","Secular One","Suez One","Frank Ruhl Libre","Karantina","Bellefair","Amatic SC","Varela Round","Alef","David Libre","Noto Serif Hebrew","Miriam Libre","Playpen Sans Hebrew","Tinos"];
+const GFX_STYLES=[["מודרני ונקי","modern, clean, lots of white space, bold sans-serif"],["יוקרתי זהב","luxury, deep purple/black with gold foil accents, elegant serif"],["AI עתידני","futuristic AI look: glowing neon gradients, glassmorphism, light rays"],["רק מילים","typography only, no pictures: big expressive Hebrew lettering is the whole design"],["שמח וצבעוני","cheerful, colorful, playful shapes, confetti"],["רגוע ורך","soft pastel, calm, rounded shapes"],["חגיגי","festive, celebration, sparkles and ornaments"],["חרדי מכובד","respectable Haredi community style: modest, traditional ornaments, cream and navy"]];
+const G={photo:null,photoURL:null,svg:null,png:null,vid:null,styles:new Set(),round:0,anim:false,secs:10,img:null};
+const loadImage=f=>new Promise((res,rej)=>{ const u=URL.createObjectURL(f), i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=u; });
+function gfxPrompt(again){
+  const txt=$("gText").value.trim(), desc=$("gDesc").value.trim(), st=[...G.styles].map(k=>GFX_STYLES.find(x=>x[0]===k)[1]).join("; ");
+  return `בקשת עיצוב מהאפליקציה "הקהילה של נחמי". Claude: ענה רק בבלוק קוד אחד של SVG, בלי הסברים.
+
+You are a top graphic designer. Design ONE WhatsApp-status ad as a single self-contained SVG.
+Rules (must follow exactly):
+- <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1920" viewBox="0 0 1080 1920">
+- All Hebrew text must appear EXACTLY as written below (same words, same spelling, nothing added except you may split it into lines and choose which words are the headline). Never invent phone numbers, prices or details.
+- Every <text> element: direction="rtl" and text-anchor="middle" (or "start"/"end" deliberately), with explicit font-size; keep every line inside x 60..1020 (estimate ~0.55×font-size per Hebrew letter for width; break long text into more lines).
+- Fonts: use ONLY these font-family names: ${GFX_FONTS.join(", ")}. You may use font-weight 400/700/900.
+- No <script>, no <foreignObject>, no external URLs. The only image hrefs allowed are the placeholders below.
+${G.photo?`- The user's photo: <image href="{{PHOTO}}" .../> (use preserveAspectRatio="xMidYMid slice" inside a clipPath frame, or as a full-bleed background with a dark gradient over it so text stays readable).`:"- There is no photo: make it a graphic/typographic design (shapes, gradients, patterns, decorative elements drawn in SVG)."}
+${$("gLogo").checked?'- The community logo: <image href="{{LOGO}}" width="200" height="200" .../> placed small and tasteful (a corner or bottom center).':""}
+- Make it really beautiful and professional: strong hierarchy, rich gradients, depth (filters like feDropShadow / feGaussianBlur are fine), decorative details that fit the style. Text must be very readable on a phone.
+${G.anim?`- ANIMATED (becomes a ${G.secs}-second video for WhatsApp status). Do NOT use SMIL or CSS animation. Instead put every element that should move in its own DIRECT child of the root <svg>: <g data-anim="TYPE" data-start="SECONDS" data-dur="SECONDS" data-loop="LOOP">…</g>
+  TYPE = fade | up | down | left | right | zoom | pop  (how it enters).  data-start = when it starts entering (0..${Math.min(4,Math.round(G.secs/3))}), data-dur = 0.4..1.2.
+  LOOP (optional, gentle motion after it entered) = pulse | float | glow | spin | none. Use loops on a few decorative elements and maybe on the call-to-action; never spin text.
+  Background and decorations that do not move stay as normal elements (no data-anim). Enter things one after another (headline first, then details, then phone / call to action), so everything is visible by second ${Math.min(4,Math.round(G.secs/3))+1} and stays until ${G.secs}s.
+`:""}${again?`- This is design #${G.round+1}: make it clearly DIFFERENT from a typical first attempt (other layout, other colors, other fonts).\n`:""}
+Style requested by the user: ${desc||"(none written)"}${st?`\nStyle keywords: ${st}`:""}
+
+The ad text (Hebrew):
+"""
+${txt}
+"""`; }
+function gfxExtract(t){ t=String(t||""); const a=t.indexOf("<svg"), b=t.lastIndexOf("</svg>"); if (a<0||b<a) return null; return t.slice(a,b+6); }
+function gfxSanitize(svg){
+  const doc=new DOMParser().parseFromString(svg,"image/svg+xml"); const root=doc.documentElement; if (!root||root.nodeName!=="svg"||doc.querySelector("parsererror")) throw new Error("parse");
+  doc.querySelectorAll("script,foreignObject,iframe,object,embed,a").forEach(n=>n.replaceWith(...[...n.childNodes].filter(c=>n.nodeName==="a")));
+  const all=[root,...root.querySelectorAll("*")];
+  all.forEach(n=>{ [...n.attributes].forEach(at=>{ const nm=at.name.toLowerCase(), v=at.value;
+    if (nm.startsWith("on")) n.removeAttribute(at.name);
+    else if ((nm==="href"||nm==="xlink:href") && !/^\{\{(PHOTO|LOGO|BG)\}\}$/.test(v.trim()) && !v.trim().startsWith("#")) n.removeAttribute(at.name);
+    else if (/url\(\s*['"]?(https?:|\/\/)/i.test(v)) n.removeAttribute(at.name); }); });
+  doc.querySelectorAll("style").forEach(st=>{ st.textContent=st.textContent.replace(/@import[^;]+;/g,"").replace(/url\(\s*['"]?(https?:|\/\/)[^)]*\)/gi,"none"); });
+  root.setAttribute("width","1080"); root.setAttribute("height","1920"); if (!root.getAttribute("viewBox")) root.setAttribute("viewBox","0 0 1080 1920");
+  return {doc,root}; }
+const gfxDataURL=b=>new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(b); });
+async function gfxFontCSS(root){
+  const used=new Set(); const fams=s=>String(s||"").split(",").map(x=>x.trim().replace(/^['"]|['"]$/g,"")).forEach(f=>{ const k=GFX_FONTS.find(g=>g.toLowerCase()===f.toLowerCase()); if (k) used.add(k); });
+  [root,...root.querySelectorAll("*")].forEach(n=>{ fams(n.getAttribute("font-family")); const st=n.getAttribute("style")||""; const m=st.match(/font-family\s*:\s*([^;]+)/i); if (m) fams(m[1]); });
+  root.querySelectorAll("style").forEach(s=>{ (s.textContent.match(/font-family\s*:\s*([^;}]+)/gi)||[]).forEach(x=>fams(x.split(":")[1])); });
+  if (!used.size) used.add("Heebo");
+  const chars=[...new Set((root.textContent||"")+"0123456789")].join("");
+  let css="";
+  for (const fam of used){ try{
+    const u="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+":wght@400;700;900&text="+encodeURIComponent(chars)+"&display=swap";
+    let c=await (await fetch(u)).text(); if (!/@font-face/.test(c)){ c=await (await fetch("https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam).replace(/%20/g,"+")+"&text="+encodeURIComponent(chars))).text(); }
+    const urls=[...c.matchAll(/url\((https:[^)]+)\)/g)].map(m=>m[1]);
+    for (const fu of urls){ const b=await (await fetch(fu)).blob(); c=c.split(fu).join(await gfxDataURL(b)); }
+    css+=c; }catch(e){} }
+  return css; }
+async function gfxRender(svgText){
+  const {doc,root}=gfxSanitize(svgText);
+  const css=await gfxFontCSS(root);
+  const NS="http://www.w3.org/2000/svg"; let defs=root.querySelector("defs"); if (!defs){ defs=doc.createElementNS(NS,"defs"); root.insertBefore(defs,root.firstChild); }
+  const st=doc.createElementNS(NS,"style"); st.textContent=css; defs.appendChild(st);
+  const logoURL=(document.getElementById("hdrLogo")||{}).src||"";
+  let out=new XMLSerializer().serializeToString(root).replace(/\{\{PHOTO\}\}/g,G.photoURL||"").replace(/\{\{LOGO\}\}/g,logoURL).replace(/\{\{BG\}\}/g,G.photoURL||"");
+  const img=new Image(); const url=URL.createObjectURL(new Blob([out],{type:"image/svg+xml"}));
+  await new Promise((res,rej)=>{ img.onload=res; img.onerror=()=>rej(new Error("svg image")); img.src=url; });
+  if (img.decode) await img.decode().catch(()=>{});
+  const c=$("gCan"), ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,1080,1920); ctx.drawImage(img,0,0,1080,1920);
+  G.svg=svgText; G.svgOut=out; G.vid=null; G.png=await new Promise(r=>c.toBlob(r,"image/png")); URL.revokeObjectURL(url); $("gResult").hidden=false;
+  const animated=/data-anim=|data-loop=/.test(out); $("gVidRow").hidden=!animated; G.layers=null;
+  if (animated){ G.layersP=gfxLayers(out); try{ await G.layersP; gfxLoop(); }catch(e){ $("gVidRow").hidden=true; } } return true; }
+let gfxRaf=0;
+const NONDRAW=new Set(["defs","style","linearGradient","radialGradient","filter","clipPath","mask","pattern","symbol","marker","title","desc","metadata"]);
+async function gfxImg(str){ const url=URL.createObjectURL(new Blob([str],{type:"image/svg+xml"})); const img=new Image(); await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=url; }); if (img.decode) await img.decode().catch(()=>{}); return img; }
+/* split the design into layers: everything that stands still is drawn once, every moving part separately */
+async function gfxLayers(out){
+  const doc=new DOMParser().parseFromString(out,"image/svg+xml"), root=doc.documentElement, kids=[...root.children];
+  const keep=kids.filter(n=>NONDRAW.has(n.localName)), vis=kids.filter(n=>!NONDRAW.has(n.localName));
+  const host=document.createElement("div"); host.style.cssText="position:fixed;left:-99999px;top:0;width:1080px;height:1920px;visibility:hidden"; host.innerHTML=out; document.body.appendChild(host);
+  const live=host.querySelector("svg"), liveKids=[...live.children].filter(n=>!NONDRAW.has(n.localName));
+  const groups=[]; vis.forEach((n,i)=>{ const anim=n.getAttribute&&(n.getAttribute("data-anim")||n.getAttribute("data-loop"));
+    if (anim){ let bb={x:0,y:0,width:1080,height:1920}; try{ bb=liveKids[i].getBBox(); }catch(e){}
+      groups.push({anim:true,nodes:[n],type:n.getAttribute("data-anim")||"none",start:+n.getAttribute("data-start")||0,dur:Math.max(.2,+n.getAttribute("data-dur")||.7),loop:n.getAttribute("data-loop")||"none",cx:bb.x+bb.width/2,cy:bb.y+bb.height/2}); }
+    else { const l=groups[groups.length-1]; if (l&&!l.anim) l.nodes.push(n); else groups.push({anim:false,nodes:[n]}); } });
+  host.remove();
+  const ser=new XMLSerializer();
+  for (const g of groups){ const r=root.cloneNode(false); keep.forEach(k=>r.appendChild(k.cloneNode(true))); g.nodes.forEach(k=>r.appendChild(k.cloneNode(true))); g.img=await gfxImg(ser.serializeToString(r)); }
+  G.layers=groups; }
+const easeOut=x=>1-Math.pow(1-x,3), easeBack=x=>{ const c=1.7; return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2); };
+function gfxFrame(ctx,t){ ctx.fillStyle="#fff"; ctx.fillRect(0,0,1080,1920);
+  for (const g of G.layers){ if (!g.anim){ ctx.drawImage(g.img,0,0,1080,1920); continue; }
+    const p=Math.max(0,Math.min(1,(t-g.start)/g.dur)), e=easeOut(p); let a=1,dx=0,dy=0,sc=1,rot=0;
+    if (g.type!=="none"){ a=e; if (g.type==="up") dy=(1-e)*90; else if (g.type==="down") dy=-(1-e)*90; else if (g.type==="left") dx=-(1-e)*140; else if (g.type==="right") dx=(1-e)*140; else if (g.type==="zoom") sc=.6+.4*e; else if (g.type==="pop") sc=p>=1?1:Math.max(.01,easeBack(p)); }
+    const u=t-(g.start+g.dur);
+    if (u>0){ if (g.loop==="pulse") sc*=1+.035*Math.sin(u*Math.PI*1.4); else if (g.loop==="float") dy+=10*Math.sin(u*Math.PI*.8); else if (g.loop==="glow") a*=.82+.18*(.5+.5*Math.sin(u*Math.PI*1.2)); else if (g.loop==="spin") rot=u*.25; }
+    if (a<=0.001) continue;
+    ctx.save(); ctx.globalAlpha=a; ctx.translate(g.cx+dx,g.cy+dy); if (rot) ctx.rotate(rot); if (sc!==1) ctx.scale(sc,sc); ctx.translate(-g.cx,-g.cy); ctx.drawImage(g.img,0,0,1080,1920); ctx.restore(); } }
+function gfxLoop(){ cancelAnimationFrame(gfxRaf); if (!G.layers) return; const ctx=$("gCan").getContext("2d"), t0=performance.now();
+  const f=()=>{ const t=(performance.now()-t0)/1000; gfxFrame(ctx,Math.min(t,G.secs)); if (t<G.secs) gfxRaf=requestAnimationFrame(f); }; f(); }
+async function gfxMakeVideo(){ const out=$("gOut"); if (!G.layers && G.layersP){ out.textContent="מכין את ההנפשה…"; try{ await G.layersP; }catch(e){} } if (!G.layers) return null; if (G.vid) return G.vid;
+  if (!window.MediaRecorder||!$("gCan").captureStream){ out.textContent="הטלפון הזה לא יודע להפוך את זה לסרטון."; return null; }
+  cancelAnimationFrame(gfxRaf); const c=$("gCan"), ctx=c.getContext("2d");
+  const mime=["video/mp4;codecs=avc1.42E01E","video/mp4","video/webm;codecs=vp9","video/webm"].find(m=>{ try{ return MediaRecorder.isTypeSupported(m); }catch(e){ return false; } })||"";
+  const stream=c.captureStream(30), rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:6e6}:undefined), parts=[];
+  rec.ondataavailable=e=>{ if (e.data&&e.data.size) parts.push(e.data); };
+  const done=new Promise(r=>rec.onstop=r); gfxFrame(ctx,0); rec.start(250); const t0=performance.now();
+  await new Promise(res=>{ const f=()=>{ const el=(performance.now()-t0)/1000; gfxFrame(ctx,Math.min(el,G.secs));
+    out.textContent=`🎬 יוצר את הסרטון… ${Math.min(G.secs,Math.floor(el))} מתוך ${G.secs} שניות`; if (el<G.secs+.2) requestAnimationFrame(f); else res(); }; f(); });
+  rec.stop(); await done; stream.getTracks().forEach(t=>t.stop());
+  G.vid=await fixMp4(new Blob(parts,{type:rec.mimeType||mime||"video/webm"})); out.textContent="✓ הסרטון מוכן."; return G.vid; }
+function gfxStylesUI(){ const b=$("gStyles"); b.innerHTML=""; GFX_STYLES.forEach(([k])=>{ const x=document.createElement("button"); x.type="button"; x.className="chip"; x.textContent=k; x.setAttribute("aria-pressed",G.styles.has(k));
+  x.onclick=()=>{ G.styles.has(k)?G.styles.delete(k):G.styles.add(k); gfxStylesUI(); }; b.appendChild(x); }); }
+async function gfxAsk(again){ const out=$("gOut");
+  if (!$("gText").value.trim()){ out.textContent="קודם כותבים את הטקסט של המודעה."; $("gText").focus(); return; }
+  if (again) G.round++; else G.round=0;
+  const msg=gfxPrompt(again); let copied=false; try{ await navigator.clipboard.writeText(msg); copied=true; }catch(e){}
+  const enc=encodeURIComponent(msg), short=enc.length<12000; window.open("https://claude.ai/new"+(short?"?q="+enc:""),"_blank","noopener");
+  $("gStep2").hidden=false;
+  out.textContent=short?"נפתח Claude עם הבקשה. שולחים שם, מחכים שיסיים, מעתיקים את הקוד (כפתור ההעתקה שליד הקוד), חוזרים לכאן ולוחצים ״📋 הדבקה והצגה״."
+    :(copied?"נפתח Claude והבקשה הועתקה: מדביקים שם ושולחים. אחר כך מעתיקים את הקוד, חוזרים ולוחצים ״📋 הדבקה והצגה״.":"הבקשה ארוכה מדי. נסו לקצר את הטקסט."); }
+$("gAsk").onclick=()=>gfxAsk(false);
+$("gAgain").onclick=()=>gfxAsk(true);
+$("gPasteGo").onclick=async()=>{ const out=$("gOut"); let t=$("gPaste").value.trim(); if (!t){ try{ t=await navigator.clipboard.readText(); }catch(e){} }
+  if (!t){ out.textContent="מדביקים כאן את הקוד ש־Claude כתב (לחיצה ארוכה ← הדבקה), ולוחצים שוב."; $("gPaste").focus(); return; }
+  const svg=gfxExtract(t); if (!svg){ out.textContent="לא מצאתי בקוד עיצוב (צריך להתחיל ב־<svg). מעתיקים את כל הקוד מ־Claude ומדביקים שוב."; return; }
+  $("gPaste").value=""; out.textContent="מכין את המודעה… (טוען את הכתבים)";
+  try{ await gfxRender(svg); out.textContent="✓ המודעה מוכנה! אפשר לשלוח לוואטסאפ, לשמור, או לבקש עיצוב אחר."; $("gResult").scrollIntoView({block:"start",behavior:"smooth"}); }
+  catch(e){ out.textContent="לא הצלחתי להציג את העיצוב הזה. לוחצים ״🔁 עיצוב אחר״ ומבקשים מ־Claude שוב."; } };
+$("gPhoto").addEventListener("change",async e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=""; if (!f) return;
+  const im=await loadImage(f).catch(()=>null); if (!im){ $("gOut").textContent="לא הצלחתי לפתוח את התמונה."; return; }
+  const c=document.createElement("canvas"), sc=Math.min(1,1600/Math.max(im.width,im.height)); c.width=Math.round(im.width*sc); c.height=Math.round(im.height*sc); c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  G.photo=true; G.photoURL=c.toDataURL("image/jpeg",.9); $("gPhotoPic").src=G.photoURL; $("gPhotoPic").hidden=false; $("gPhotoRm").hidden=false;
+  if (G.svg) gfxRender(G.svg).catch(()=>{}); });
+$("gPhotoRm").onclick=()=>{ G.photo=null; G.photoURL=null; $("gPhotoPic").hidden=true; $("gPhotoRm").hidden=true; };
+$("gShare").onclick=()=>{ if (G.png) shareBlob(G.png,stampName("png"),$("gOut")); };
+$("gSave").onclick=()=>{ if (G.png){ plainDownload(G.png,stampName("png")); $("gOut").textContent="המודעה נשמרה בתיקיית ההורדות ✓"; } };
+$("gVidMake").onclick=async()=>{ $("gVidMake").disabled=true; try{ const v=await gfxMakeVideo(); if (v){ $("gVidShare").hidden=false; $("gVidSave").hidden=false; } } finally{ $("gVidMake").disabled=false; } };
+$("gVidShare").onclick=()=>{ if (G.vid) shareBlob(G.vid,stampName(/mp4/.test(G.vid.type)?"mp4":"webm"),$("gOut")); };
+$("gVidSave").onclick=()=>{ if (G.vid){ plainDownload(G.vid,stampName(/mp4/.test(G.vid.type)?"mp4":"webm")); $("gOut").textContent="הסרטון נשמר בתיקיית ההורדות ✓"; } };
+$("gReplay").onclick=()=>gfxLoop();
+function gfxFmtUI(){ const b=$("gFmt"); b.innerHTML=""; chipGroup(b,[["img","🖼 תמונה"],["anim","🎬 מונפש (סרטון)"]],k=>(G.anim?"anim":"img")===k,k=>{ G.anim=k==="anim"; gfxFmtUI(); });
+  const d=$("gSecs"); d.hidden=!G.anim; d.innerHTML=""; if (G.anim) chipGroup(d,[["6","6 שניות"],["10","10 שניות"],["15","15 שניות"],["20","20 שניות"]],k=>G.secs===+k,k=>{ G.secs=+k; G.vid=null; gfxFmtUI(); }); }
+gfxFmtUI();
+$("gGpt").onclick=async()=>{ const desc=$("gDesc").value.trim(), st=[...G.styles].map(k=>GFX_STYLES.find(x=>x[0]===k)[1]).join(", ");
+  const msg=`Create a beautiful vertical background image 1080x1920 (9:16) for a WhatsApp status ad. Style: ${desc||st||"elegant, modern"}${st&&desc?", "+st:""}. Topic of the ad (for mood only): ${$("gText").value.trim().slice(0,300)}. IMPORTANT: do NOT write any text, letters or words in the image. Leave calm empty space in the middle for text that will be added later.`;
+  try{ await navigator.clipboard.writeText(msg); }catch(e){}
+  window.open("https://chatgpt.com/?q="+encodeURIComponent(msg),"_blank","noopener");
+  $("gOut").textContent="נפתח ChatGPT ליצירת תמונת רקע (בלי טקסט). שומרים את התמונה שהוא יוצר, חוזרים לכאן, מעלים אותה ב״📷 תמונה למודעה״, ואז לוחצים ״✨ עיצוב עם Claude״."; };
+gfxStylesUI();
 /* ================= RECORD WHILE WATCHING ================= */
 async function recWhileWatching(){
   const st=$("vstatus"); $("vrecHelp").hidden=true;
