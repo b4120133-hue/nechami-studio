@@ -227,7 +227,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 60</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 61</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1811,10 +1811,13 @@ $("vundo").onclick=()=>{ HIST.last=0; histCommit();
 $("vredo").onclick=()=>{ if (HIST.idx<HIST.list.length-1){ HIST.idx++; histRestore(HIST.list[HIST.idx]); $("vstatus").textContent="השינוי הוחזר."; } };
 let vHadFile=false, vBlobSig=null;
 /* fingerprint of the whole edit: if it is the same as when the file was made, the file can be sent at once */
-function vSig(){ try{ return JSON.stringify([snap(),V.takes.map(t=>[t.bid,t.vfx||"",t.in,t.out,t.rate,t.dur]),V.sounds.map(x=>[x.bid||x.id,x.vfx||"",x.dur]),V.imgs.map(m=>m.bid||m.id),OUTRO]); }catch(e){ return String(Math.random()); } }
+/* stable per-object ids (saving a project gives files new storage ids, which must not make the ready file look "old") */
+const SIGID=new WeakMap(); let sigSeq=0; const sid=o=>{ if (!o) return 0; let v=SIGID.get(o); if (!v){ v=++sigSeq; SIGID.set(o,v); } return v; };
+function vSig(){ try{ return JSON.stringify([snap(),V.takes.map(t=>[sid(t),t.vfx||"",t.in,t.out,t.rate,t.vol==null?1:t.vol]),V.sounds.map(x=>[sid(x),x.vfx||""]),V.imgs.map(m=>sid(m)),OUTRO,V.voiceIdx]); }catch(e){ return String(Math.random()); } }
 const vFresh=()=>!!vBlob && vBlobSig!=null && vBlobSig===vSig();
 function vInvalidate(){
   const out=$("vout"); if (out.hidden) return;
+  if (vBlob && vBlobSig!=null && vBlobSig===vSig()) return; /* nothing really changed (e.g. fonts finished loading): keep the ready file */
   out.pause(); out.hidden=true; vcan.hidden=false;
   $("vsave").hidden=true; $("vshare").hidden=true; $("vreplay").hidden=true; $("vback").hidden=true; $("vplay").hidden=false;
   $("vshare").classList.remove("pulse"); $("vshareAll").classList.remove("pulse");
