@@ -227,7 +227,7 @@ body.hasToolbar .wrap{padding-bottom:96px}
     <img id="hdrLogo" alt="לוגו הקהילה של נחמי">
     <div>
       <h1>הסטודיו של נחמי</h1>
-      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 59</p>
+      <button class="btn btn-ghost btn-small homeBtn" id="goHome" type="button" hidden>🏠 בית</button><p class="ver" style="margin:0;font-size:11px;color:var(--muted)">גרסה 60</p>
       <p id="hdrSub">מדביקים מודעה ← מקבלים תמונה ממותגת לסטטוס</p>
     </div>
   </header>
@@ -1609,8 +1609,15 @@ function vMain(ctx,tm,main,S){
 }
 
 /* ----- captions ----- */
+/* every caption stays on screen long enough to read (the first one used to flash for a split second) */
+function capFix(list){ const a=list.slice().sort((x,y)=>x.start-y.start);
+  for (let i=0;i<a.length;i++){ const c=a[i], words=c.text.split(/\s+/).filter(Boolean).length, min=Math.max(1.2,Math.min(3.5,words*.38));
+    if (i>0 && c.start<a[i-1].start+.05) c.start=a[i-1].start+.05;
+    if (!(c.end>c.start) || c.end-c.start<min) c.end=c.start+min;
+    const nx=a[i+1]; if (nx && nx.start<c.end){ if (nx.start>=c.start+min) c.end=nx.start; else nx.start=c.end; } }
+  return a; }
 function vChunks(){
-  if (V.capT && V.capT.length) return V.capT.filter(c=>(c.text||"").trim()).map(c=>({text:c.text.trim(),start:c.s,end:c.e}));
+  if (V.capT && V.capT.length) return capFix(V.capT.filter(c=>(c.text||"").trim()).map(c=>({text:c.text.trim(),start:+c.s||0,end:+c.e||0})));
   const t=V.cap.trim(); if (!t) return [];
   let parts=[];
   if (V.mode==="all") parts=[t];
